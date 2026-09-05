@@ -1,0 +1,10 @@
+{
+  "ENVIRONMENT": "dev",
+  "SUPABASE_URL": "http://127.0.0.1:54321",
+  "SUPABASE_PUBLISHABLE_KEY": "REPLACE_WITH_LOCAL_SUPABASE_PUBLISHABLE_KEY",
+  "GOOGLE_MAPS_API_KEY": "REPLACE_WITH_GOOGLE_MAPS_API_KEY",
+  "MAP_STYLE_URL": "https://demotiles.maplibre.org/style.json",
+  "MAP_TILE_PROVIDER": "MapLibre demo style",
+  "MAP_OFFLINE_ENABLED": false,
+  "MAP_ATTRIBUTION": "© OpenStreetMap contributors"
+}

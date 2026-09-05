@@ -1,0 +1,10 @@
+{
+  "name": "sentinel-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sentinel V2 — tooling manifest (Supabase CLI as a dev dependency). The app itself is the Flutter project at the repo root.",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "supabase": "^2.116.0"
+  }
+}
