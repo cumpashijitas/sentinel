@@ -35,6 +35,17 @@ class AppConfig {
   /// `dotenv.load()`. Throws [ConfigurationException] when a required value
   /// is missing, e.g. when `.env` doesn't exist or wasn't loaded yet.
   factory AppConfig.fromEnvironment() {
+    // `dotenv.env` throws NotInitializedError (not a ConfigurationException)
+    // if `dotenv.load()` was never called — normalize that into the same
+    // exception type as every other "missing configuration" case below,
+    // so callers only ever need to catch one thing.
+    if (!dotenv.isInitialized) {
+      throw const ConfigurationException(
+        'Configuración incompleta: no se cargó front/.env (dotenv.load() '
+        'nunca se llamó). Ver README.md.',
+      );
+    }
+
     final env = dotenv.env;
     final apiBaseUrl = env['API_BASE_URL'] ?? '';
 

@@ -6,20 +6,16 @@ void main() {
   group('AppConfig', () {
     test('isProduction is true only for the prod environment', () {
       const prod = AppConfig(
-        supabaseUrl: 'https://example.supabase.co',
-        supabasePublishableKey: 'publishable-key',
+        apiBaseUrl: 'https://api.example.com',
         environmentName: 'prod',
-        googleMapsApiKey: '',
         mapStyleUrl: 'https://demotiles.maplibre.org/style.json',
         mapTileProvider: 'MapLibre demo style',
         mapOfflineEnabled: false,
         mapAttribution: '© OpenStreetMap contributors',
       );
       const dev = AppConfig(
-        supabaseUrl: 'http://127.0.0.1:54321',
-        supabasePublishableKey: 'publishable-key',
+        apiBaseUrl: 'http://localhost:3000',
         environmentName: 'dev',
-        googleMapsApiKey: '',
         mapStyleUrl: 'https://demotiles.maplibre.org/style.json',
         mapTileProvider: 'MapLibre demo style',
         mapOfflineEnabled: false,
@@ -31,11 +27,12 @@ void main() {
     });
 
     test(
-      'fromEnvironment throws ConfigurationException without dart-define',
+      'fromEnvironment throws ConfigurationException without a loaded .env',
       () {
-        // The test runner isn't launched with --dart-define-from-file, so
-        // SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY are empty and this must fail
-        // loudly instead of silently booting with an unusable Supabase client.
+        // The test runner never calls dotenv.load() (see bootstrap.dart),
+        // so dotenv.env is empty and API_BASE_URL is missing — this must
+        // fail loudly instead of silently booting with no backend to
+        // talk to.
         expect(
           AppConfig.fromEnvironment,
           throwsA(isA<ConfigurationException>()),

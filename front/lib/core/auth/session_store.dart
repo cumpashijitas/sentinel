@@ -99,7 +99,7 @@ class SessionStore {
     final session = await _request('/auth/register', {
       'email': email,
       'password': password,
-      if (displayName != null) 'display_name': displayName,
+      'display_name': ?displayName,
     });
     await _setSession(session);
     return session.user;

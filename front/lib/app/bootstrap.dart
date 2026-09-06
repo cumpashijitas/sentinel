@@ -39,7 +39,7 @@ Future<void> bootstrap() async {
   final AppConfig config;
   try {
     try {
-      await dotenv.load(fileName: '.env');
+      await dotenv.load();
     } catch (error) {
       // Missing `.env` (fresh clone, never copied from `.env.example`)
       // throws a plain Exception from flutter_dotenv, not a

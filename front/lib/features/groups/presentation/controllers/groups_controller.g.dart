@@ -55,7 +55,7 @@ final class GroupRemoteDataSourceProvider
 }
 
 String _$groupRemoteDataSourceHash() =>
-    r'b8f9805b3185c7ec20bd95eaf2b18fe726b85348';
+    r'7a222e8e15021fc156bece79fe9e8fe254894bc5';
 
 @ProviderFor(groupRepository)
 final groupRepositoryProvider = GroupRepositoryProvider._();

@@ -87,16 +87,13 @@ class GroupRepositoryImpl implements GroupRepository {
   }
 
   static String _messageFor(ApiException error) {
-    switch (error.statusCode) {
-      case 403:
-        return 'No tienes permiso para realizar esta acción.';
-      case 404:
-        return 'Grupo no encontrado.';
-    }
     // Domain errors raised by back/src/services/group.service.ts — same
     // message strings the old SQL RPC functions (create_ride_group /
     // join_group_by_code / leave_group) used to raise, kept unchanged on
-    // purpose so this translation didn't need to move.
+    // purpose so this translation didn't need to move. Checked *before*
+    // the generic statusCode fallback below: some of these (e.g. "invalid
+    // invite code") share a statusCode with unrelated cases (plain "group
+    // not found"), so the specific message must win first.
     switch (error.message) {
       case 'group name is required':
         return 'Ingresa un nombre para el grupo.';
@@ -108,6 +105,13 @@ class GroupRepositoryImpl implements GroupRepository {
         return 'No eres integrante activo de este grupo.';
       case 'the group owner cannot leave; transfer ownership or archive the group first':
         return 'El propietario no puede abandonar el grupo. Transfiere la propiedad o archívalo primero.';
+    }
+
+    switch (error.statusCode) {
+      case 403:
+        return 'No tienes permiso para realizar esta acción.';
+      case 404:
+        return 'Grupo no encontrado.';
       default:
         return error.message;
     }

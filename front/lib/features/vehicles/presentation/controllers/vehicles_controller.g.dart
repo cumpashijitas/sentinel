@@ -55,7 +55,7 @@ final class VehicleRemoteDataSourceProvider
 }
 
 String _$vehicleRemoteDataSourceHash() =>
-    r'11fc7ce623b794a6e41f84bf4934e980c4b67a72';
+    r'c5aac90deea80b463403c2a96fc0db1de383fc67';
 
 @ProviderFor(vehicleRepository)
 final vehicleRepositoryProvider = VehicleRepositoryProvider._();

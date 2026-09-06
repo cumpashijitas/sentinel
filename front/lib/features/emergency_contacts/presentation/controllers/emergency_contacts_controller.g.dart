@@ -58,7 +58,7 @@ final class EmergencyContactRemoteDataSourceProvider
 }
 
 String _$emergencyContactRemoteDataSourceHash() =>
-    r'57f7dca150f699a38fd400125c3c8c8ace755d7d';
+    r'bdb1f9a9e446c733c05b150e4f3dc493bf2095b1';
 
 @ProviderFor(emergencyContactRepository)
 final emergencyContactRepositoryProvider =

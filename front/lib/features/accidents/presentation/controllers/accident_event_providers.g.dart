@@ -80,7 +80,7 @@ final class AccidentEventRemoteDataSourceProvider
 }
 
 String _$accidentEventRemoteDataSourceHash() =>
-    r'1fd791e1a6faf2bfbfdd212b3fb7f13bd11a95da';
+    r'82b9bfa119e32643e0b644049bf42c9c1e6fc959';
 
 @ProviderFor(accidentEventRepository)
 final accidentEventRepositoryProvider = AccidentEventRepositoryProvider._();

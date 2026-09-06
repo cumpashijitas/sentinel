@@ -56,7 +56,7 @@ final class RideSessionRemoteDataSourceProvider
 }
 
 String _$rideSessionRemoteDataSourceHash() =>
-    r'c4f74cdb9cf3ff12a532613f08395cf43461b1c1';
+    r'25541fe2ac30f423096619d95184609dffe0016f';
 
 @ProviderFor(rideSessionRepository)
 final rideSessionRepositoryProvider = RideSessionRepositoryProvider._();

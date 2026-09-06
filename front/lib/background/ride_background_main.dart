@@ -65,7 +65,7 @@ Future<void> rideBackgroundMain(List<String> args) async {
   try {
     // Separate FlutterEngine/isolate from the UI one — `.env` must be
     // (re)loaded here too, it isn't shared across engines.
-    await dotenv.load(fileName: '.env');
+    await dotenv.load();
     config = AppConfig.fromEnvironment();
   } on ConfigurationException catch (error) {
     AppLogger.error('RideBackgroundService: ${error.message}');

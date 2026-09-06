@@ -55,7 +55,7 @@ final class ProfileRemoteDataSourceProvider
 }
 
 String _$profileRemoteDataSourceHash() =>
-    r'1fa8f20b8d1050786ed1036ee1271f8dbf4b5fc3';
+    r'4a63e71a478c1f3deb9d599be5bedc8bb59121bf';
 
 @ProviderFor(profileRepository)
 final profileRepositoryProvider = ProfileRepositoryProvider._();

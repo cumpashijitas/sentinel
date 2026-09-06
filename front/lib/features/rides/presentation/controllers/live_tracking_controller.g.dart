@@ -98,7 +98,7 @@ final class LiveLocationRemoteDataSourceProvider
 }
 
 String _$liveLocationRemoteDataSourceHash() =>
-    r'b1f99978b9e0019fade42671caf07c8b579e8d5c';
+    r'0a6514c7ac6990ca81f3cd2efa260362bfcc6242';
 
 @ProviderFor(liveLocationRepository)
 final liveLocationRepositoryProvider = LiveLocationRepositoryProvider._();

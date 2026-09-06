@@ -58,7 +58,7 @@ final class DevicePushTokenRemoteDataSourceProvider
 }
 
 String _$devicePushTokenRemoteDataSourceHash() =>
-    r'58717a657685397a5b3a8ecb4ecb7612f3d92b6b';
+    r'0cd6101aa66f38b22d1fdfe2ff6b7ddd2d835e9e';
 
 @ProviderFor(devicePushTokenRepository)
 final devicePushTokenRepositoryProvider = DevicePushTokenRepositoryProvider._();
