@@ -23,15 +23,15 @@ migrate_working_dir/
 # is commented out by default.
 #.vscode/
 
-# Flutter/Dart/Pub related
+# Flutter/Dart/Pub related (front/ is the Flutter project root)
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
-/coverage/
+/front/build/
+/front/coverage/
 
 # Symbolication related
 app.*.symbols
@@ -40,21 +40,19 @@ app.*.symbols
 app.*.map.json
 
 # Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+/front/android/app/debug
+/front/android/app/profile
+/front/android/app/release
 
 # Widget Preview related
 .widget_preview/
 
-# Sentinel: build-time configuration containing environment-specific values
-# (Supabase URL/anon key, maps API keys, etc.). Never commit real values —
-# only the tracked *.example templates below.
-/config/*.json
-!/config/*.example.json
-
-# Node.js (Supabase CLI is installed as a dev dependency via npm)
+# Node.js (Supabase CLI is installed as a dev dependency via npm; also used
+# by the root scripts and by back/)
 node_modules/
+
+# back/ (Node/TypeScript backend) build output
+/back/dist/
 
 # Supabase CLI local runtime state (not project config/migrations)
 supabase/.branches/

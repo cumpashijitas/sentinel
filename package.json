@@ -2,9 +2,15 @@
   "name": "sentinel-v2",
   "version": "0.1.0",
   "private": true,
-  "description": "Sentinel V2 — tooling manifest (Supabase CLI as a dev dependency). The app itself is the Flutter project at the repo root.",
+  "description": "Sentinel V2 — orquesta front/ (Flutter) + back/ (Node/TS). Ver docs/architecture.md.",
   "license": "UNLICENSED",
+  "scripts": {
+    "install:all": "npm --prefix back install && cd front && flutter pub get",
+    "dev": "concurrently -k -n back,web \"npm --prefix back run dev\" \"cd front && flutter run -d chrome\"",
+    "build:apk": "cd front && flutter build apk --release"
+  },
   "devDependencies": {
+    "concurrently": "^9.1.0",
     "supabase": "^2.116.0"
   }
 }
