@@ -7,18 +7,40 @@
 // `Authorization: Bearer <token>`. Este middleware lo valida y expone
 // `req.userId` — ninguna ruta debajo de esto vuelve a tocar Supabase para
 // decidir quién es el usuario.
+//
+// Verificación en dos modos, porque Supabase cambió cómo firma estos
+// tokens (ver docs/architecture.md):
+//   - Proyectos creados desde nov. 2025 (el caso normal hoy): ya NO tienen
+//     un "JWT Secret" compartido — firman con un par de llaves asimétrico
+//     y publican la pública en un endpoint JWKS. Ese es el camino por
+//     defecto de abajo: no requiere ninguna variable de entorno extra más
+//     allá de SUPABASE_URL, que ya se necesita para /auth/*.
+//   - Proyectos viejos que todavía tienen el JWT Secret clásico (HS256):
+//     si SUPABASE_JWT_SECRET está seteada en .env, se usa esa en su lugar.
+//     Nunca hace falta configurar ambas.
 
 import type { NextFunction, Request, Response } from 'express';
-import { jwtVerify } from 'jose';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
-const secret = process.env.SUPABASE_JWT_SECRET;
-if (!secret) {
+const legacySecret = process.env.SUPABASE_JWT_SECRET;
+const supabaseUrl = process.env.SUPABASE_URL;
+
+if (!legacySecret && !supabaseUrl) {
   throw new Error(
-    'SUPABASE_JWT_SECRET no está configurada. Ver .env.example — está en ' +
-      'Project Settings → API → JWT Settings → "JWT Secret".',
+    'Falta SUPABASE_URL (o, en un proyecto viejo, SUPABASE_JWT_SECRET) en ' +
+      'back/.env — necesaria para verificar los tokens de Supabase Auth. ' +
+      'Ver .env.example.',
   );
 }
-const secretKey = new TextEncoder().encode(secret);
+
+// Resolved once at module load into one of two verification strategies —
+// kept as two branches (rather than one variable typed as the union) since
+// `jwtVerify`'s overloads don't collapse cleanly into a single call site
+// otherwise.
+const legacyKey = legacySecret ? new TextEncoder().encode(legacySecret) : null;
+const jwks = legacySecret
+  ? null
+  : createRemoteJWKSet(new URL(`${supabaseUrl}/auth/v1/.well-known/jwks.json`));
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -36,7 +58,9 @@ declare global {
  * but the verification itself is identical either way. Throws on a
  * missing/invalid/expired token; never returns a falsy user id. */
 export async function verifyAccessToken(token: string): Promise<string> {
-  const { payload } = await jwtVerify(token, secretKey);
+  const { payload } = legacyKey
+    ? await jwtVerify(token, legacyKey)
+    : await jwtVerify(token, jwks!);
   const userId = payload.sub;
   if (typeof userId !== 'string' || userId.length === 0) {
     throw new Error('invalid token');
