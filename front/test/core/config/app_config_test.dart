@@ -8,16 +8,16 @@ void main() {
       const prod = AppConfig(
         apiBaseUrl: 'https://api.example.com',
         environmentName: 'prod',
-        mapStyleUrl: 'https://demotiles.maplibre.org/style.json',
-        mapTileProvider: 'MapLibre demo style',
+        mapTilesUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        mapTileProvider: 'OpenStreetMap',
         mapOfflineEnabled: false,
         mapAttribution: '© OpenStreetMap contributors',
       );
       const dev = AppConfig(
         apiBaseUrl: 'http://localhost:3000',
         environmentName: 'dev',
-        mapStyleUrl: 'https://demotiles.maplibre.org/style.json',
-        mapTileProvider: 'MapLibre demo style',
+        mapTilesUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        mapTileProvider: 'OpenStreetMap',
         mapOfflineEnabled: false,
         mapAttribution: '© OpenStreetMap contributors',
       );

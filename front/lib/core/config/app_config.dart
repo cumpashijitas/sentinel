@@ -25,7 +25,7 @@ class AppConfig {
   const AppConfig({
     required this.apiBaseUrl,
     required this.environmentName,
-    required this.mapStyleUrl,
+    required this.mapTilesUrl,
     required this.mapTileProvider,
     required this.mapOfflineEnabled,
     required this.mapAttribution,
@@ -60,9 +60,10 @@ class AppConfig {
     return AppConfig(
       apiBaseUrl: apiBaseUrl,
       environmentName: env['ENVIRONMENT'] ?? 'dev',
-      mapStyleUrl:
-          env['MAP_STYLE_URL'] ?? 'https://demotiles.maplibre.org/style.json',
-      mapTileProvider: env['MAP_TILE_PROVIDER'] ?? 'MapLibre demo style',
+      mapTilesUrl:
+          env['MAP_TILES_URL'] ??
+          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      mapTileProvider: env['MAP_TILE_PROVIDER'] ?? 'OpenStreetMap',
       // Must reflect the provider's actual terms — never default to true.
       // See MapTileConfig.offlineAllowed's doc comment.
       mapOfflineEnabled: (env['MAP_OFFLINE_ENABLED'] ?? 'false') == 'true',
@@ -78,11 +79,11 @@ class AppConfig {
   final String apiBaseUrl;
   final String environmentName;
 
-  // MapLibre config (`features/maps/domain/entities/map_tile_config.dart`)
-  // — see docs/maps.md. Defaults to MapLibre's public demo style so a `.env`
-  // that predates this never breaks; every real dev/prod `.env` should still
-  // set these explicitly (`README.md` §4).
-  final String mapStyleUrl;
+  // Config del mapa (`features/maps/domain/entities/map_tile_config.dart`,
+  // `OsmMapService`) — ver docs/maps.md. Por defecto apunta directo a
+  // tile.openstreetmap.org así un `.env` viejo nunca rompe; todo `.env`
+  // real de dev/prod debería igual setear esto explícito (`README.md`).
+  final String mapTilesUrl;
   final String mapTileProvider;
   final bool mapOfflineEnabled;
   final String mapAttribution;

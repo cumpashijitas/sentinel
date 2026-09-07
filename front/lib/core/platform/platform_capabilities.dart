@@ -39,12 +39,14 @@ abstract final class PlatformCapabilities {
   /// Local/system device notifications (accident countdown alerts, etc.).
   static bool get supportsDeviceNotifications => isAndroid;
 
-  /// Interactive maps render on both platforms — `google_maps_flutter` via
-  /// its federated web implementation, and (since the "realtime-v2"
-  /// migration, `docs/realtime-v2-migration.md`) `maplibre_gl`, which ships
-  /// its own Android + Web engines. Offline map regions (Fase D) are
-  /// Android-only — that distinction lives on `MapTileConfig.offlineAllowed`
-  /// plus a platform check where the download UI is built, not here.
+  /// Interactive maps render on both platforms — `flutter_map` is pure
+  /// Dart (no per-platform native engine to gate on) with tiles served
+  /// directly from `tile.openstreetmap.org`. Offline map regions (Fase D)
+  /// are Android-only — that distinction lives on
+  /// `MapTileConfig.offlineAllowed` plus a platform check where the
+  /// download UI is built, not here (and, per OSM's tile usage policy,
+  /// `offlineAllowed` must stay `false` against that tile server
+  /// regardless of platform — see `MapTileConfig`'s own doc comment).
   static bool get supportsMaps => true;
 
   /// Throws [UnsupportedError] when called from a non-Android platform.

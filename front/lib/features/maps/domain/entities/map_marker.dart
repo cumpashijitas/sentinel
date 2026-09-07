@@ -36,8 +36,7 @@ enum MapMarkerCategory {
 enum MapMarkerStatus { normal, stale, offline, lagging, sos, incident }
 
 /// One point Sentinel wants drawn on the map — the domain-level
-/// equivalent of a `google_maps_flutter` `Marker` or a `maplibre_gl`
-/// `Symbol`, but tied to neither.
+/// equivalent of a `flutter_map` `Marker`, but not tied to it.
 @freezed
 abstract class MapMarker with _$MapMarker {
   const factory MapMarker({

@@ -179,12 +179,13 @@ void main() {
           ),
           // Avoids depending on appConfigProvider (never overridden in a
           // bare widget test — see docs/architecture.md) and avoids
-          // pumping a real MapLibreMap platform view, which `flutter
-          // test` has no host for.
+          // pumping a real flutter_map/TileLayer widget that would try to
+          // fetch real tiles over the network, which `flutter test` has
+          // no business doing.
           mapServiceProvider.overrideWithValue(_FakeMapService()),
           mapTileConfigProvider.overrideWithValue(
             const MapTileConfig(
-              styleUrl: 'https://example.test/style.json',
+              tilesUrl: 'https://example.test/{z}/{x}/{y}.png',
               attribution: '© Test',
               offlineAllowed: false,
               providerName: 'test',
