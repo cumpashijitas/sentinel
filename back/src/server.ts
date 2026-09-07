@@ -4,6 +4,7 @@
 // `middleware/auth.ts`). Ver docs/architecture.md.
 
 import 'dotenv/config';
+import { createServer } from 'node:http';
 import cors from 'cors';
 import express from 'express';
 import { requireAuth } from './middleware/auth.js';
@@ -16,6 +17,7 @@ import { groupRoutes } from './routes/groups.routes.js';
 import { rideRoutes } from './routes/rides.routes.js';
 import { accidentRoutes } from './routes/accidents.routes.js';
 import { pushTokenRoutes } from './routes/push-tokens.routes.js';
+import { attachLocationHub } from './ws/location-hub.js';
 
 const app = express();
 
@@ -60,7 +62,18 @@ app.use(pushTokenRoutes);
 
 app.use(errorHandler);
 
+// Bug real encontrado en vivo: la app corría con `app.listen(...)` (Express
+// crea su propio http.Server internamente, sin exponerlo), así que
+// `attachLocationHub` — que necesita el `http.Server` para escuchar el
+// evento 'upgrade' de cada conexión WebSocket entrante — nunca se llamaba.
+// Sin esto, TODA conexión WebSocket a /ws/sessions/:id/locations fallaba
+// (WebSocketException: Failed to connect), sin importar qué tan bien
+// funcionara el resto del pipeline de ubicación en vivo. Crear el
+// http.Server explícitamente y pasárselo al hub es lo que faltaba.
+const server = createServer(app);
+attachLocationHub(server);
+
 const port = Number(process.env.PORT ?? 3000);
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Sentinel back/ escuchando en http://localhost:${port}`);
 });
