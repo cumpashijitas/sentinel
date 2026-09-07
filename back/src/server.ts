@@ -19,9 +19,20 @@ import { pushTokenRoutes } from './routes/push-tokens.routes.js';
 
 const app = express();
 
+// Bug real encontrado en vivo (Flutter Web en :8080 contra back/ en :3000):
+// `cors_origin.split(',')` con CORS_ORIGIN=* producía el array `['*']`, y el
+// paquete `cors` trata un array como lista exacta de orígenes permitidos —
+// nunca hace match contra un Origin real de navegador, así que nunca mandaba
+// `Access-Control-Allow-Origin` y el navegador bloqueaba todo en preflight.
+// El wildcard real solo funciona si se le pasa el string `'*'` tal cual,
+// no un array que lo contenga.
+const corsOriginEnv = process.env.CORS_ORIGIN ?? '*';
 app.use(
   cors({
-    origin: (process.env.CORS_ORIGIN ?? '*').split(',').map((o) => o.trim()),
+    origin:
+      corsOriginEnv === '*'
+        ? '*'
+        : corsOriginEnv.split(',').map((o) => o.trim()),
   }),
 );
 app.use(express.json());

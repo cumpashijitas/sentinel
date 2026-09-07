@@ -58,7 +58,23 @@ class SessionStore {
   /// Emits the current user (or `null`) on every sign-in/sign-up/sign-out/
   /// refresh — what `app/router.dart`'s redirect logic listens to, same
   /// contract `AuthRepository.authStateChanges` always had.
-  Stream<AppUser?> get authStateChanges => _controller.stream;
+  ///
+  /// Bug found live (Fase de reestructuración): `_controller` is a
+  /// *broadcast* stream — it never replays past events to a listener that
+  /// subscribes after the fact. Every provider built on top of this
+  /// (`currentProfileProvider`, `vehiclesProvider`, ...) does
+  /// `await authStateChangesProvider.future` expecting the *current* auth
+  /// state, not necessarily a *future* change — with a plain broadcast
+  /// stream, subscribing to this on any page opened after sign-in hangs
+  /// forever waiting for an event that already happened. Supabase's own
+  /// `onAuthStateChange` avoided this by always replaying an
+  /// `INITIAL_SESSION` event to each new listener; this does the same by
+  /// construction — a fresh `Stream<AppUser?>` per `.authStateChanges`
+  /// read, seeded with the current value before following live updates.
+  Stream<AppUser?> get authStateChanges async* {
+    yield currentUser;
+    yield* _controller.stream;
+  }
 
   /// Called once from `bootstrap()`, before `runApp()`: tries to resume a
   /// previous session from the refresh token persisted on-device (the

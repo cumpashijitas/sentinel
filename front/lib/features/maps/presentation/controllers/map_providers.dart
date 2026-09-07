@@ -7,7 +7,7 @@ import '../../domain/repositories/map_service.dart';
 
 part 'map_providers.g.dart';
 
-/// Built once from [AppConfig] (`--dart-define-from-file`) — see
+/// Built once from [AppConfig] (`front/.env`, via `flutter_dotenv`) — see
 /// `MapTileConfig`'s own doc comment for why every field here matters,
 /// especially `offlineAllowed`.
 @riverpod

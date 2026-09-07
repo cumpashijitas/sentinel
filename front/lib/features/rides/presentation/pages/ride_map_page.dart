@@ -131,6 +131,18 @@ class _RideMapBodyState extends ConsumerState<_RideMapBody> {
   // reconstruir todo el widget MapLibre en cada actualización GPS".
   MapController? _mapController;
 
+  // Bug real encontrado en vivo: la cámara solo se posiciona una vez, al
+  // construir el mapa (`initialViewport`) — y en ese momento nadie tiene
+  // fix todavía casi nunca (el GPS tarda unos segundos en dar la primera
+  // posición después de tocar "compartir"), así que arranca en (0,0), en
+  // medio del océano, y se queda ahí para siempre: `setMarkers` agrega el
+  // pin en las coordenadas reales, pero ninguna llamada mueve la cámara
+  // después del build inicial. Esta bandera dispara UN solo `fitBounds`
+  // apenas aparece el primer fix real — no en cada actualización después,
+  // para no arrancarle la cámara de las manos a alguien que ya la movió a
+  // propósito mientras mira el mapa.
+  bool _hasCenteredOnRealData = false;
+
   @override
   void didUpdateWidget(_RideMapBody oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -154,6 +166,23 @@ class _RideMapBodyState extends ConsumerState<_RideMapBody> {
         ),
       ),
     );
+    _maybeCenterOnRealData(controller);
+  }
+
+  void _maybeCenterOnRealData(MapController controller) {
+    if (_hasCenteredOnRealData) return;
+    final coordinates = widget.members
+        .where((member) => member.fix != null)
+        .map(
+          (member) => MapCoordinate(
+            latitude: member.fix!.latitude,
+            longitude: member.fix!.longitude,
+          ),
+        )
+        .toList(growable: false);
+    if (coordinates.isEmpty) return;
+    _hasCenteredOnRealData = true;
+    unawaited(controller.fitBounds(coordinates));
   }
 
   @override
