@@ -30,17 +30,37 @@ class LocalAccidentAlertNotifier implements AccidentAlertNotifier {
   Future<void> initialize({
     required void Function(String accidentEventId) onConfirmedOk,
   }) async {
+    void handleResponse(NotificationResponse response) {
+      if (response.actionId != _confirmActionId) return;
+      final accidentEventId = response.payload;
+      if (accidentEventId != null) onConfirmedOk(accidentEventId);
+    }
+
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
     await _plugin.initialize(
       settings: const InitializationSettings(android: androidSettings),
-      onDidReceiveNotificationResponse: (response) {
-        if (response.actionId != _confirmActionId) return;
-        final accidentEventId = response.payload;
-        if (accidentEventId != null) onConfirmedOk(accidentEventId);
-      },
+      onDidReceiveNotificationResponse: handleResponse,
     );
+
+    // Bug real reportado en vivo: tocar "Estoy bien" no hacía nada y la
+    // alerta se mandaba igual. `onDidReceiveNotificationResponse` de
+    // arriba solo entrega el tap si el motor Flutter de la UI YA estaba
+    // vivo en ese momento — exactamente lo que NO suele pasar mientras se
+    // maneja (pantalla apagada, app en segundo plano: el proceso principal
+    // puede haber sido cerrado por Android, y solo sigue vivo el motor
+    // headless de `RideBackgroundService`). Si tocar la acción de la
+    // notificación es lo que arranca el proceso principal de cero, el tap
+    // que causó ese arranque ya se disparó *antes* de que este `initialize`
+    // llegara a registrar el callback de arriba — se pierde en silencio.
+    // `getNotificationAppLaunchDetails()` es la forma correcta de
+    // recuperar ese tap "fundador" después de un arranque en frío.
+    final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+    final launchResponse = launchDetails?.notificationResponse;
+    if (launchDetails?.didNotificationLaunchApp ?? false) {
+      if (launchResponse != null) handleResponse(launchResponse);
+    }
   }
 
   @override

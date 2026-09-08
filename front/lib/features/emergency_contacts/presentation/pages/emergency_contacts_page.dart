@@ -82,8 +82,10 @@ class _ContactTile extends ConsumerWidget {
       contact.phone,
       if (contact.relationship != null) contact.relationship!,
     ];
+    // 'Push' deliberadamente no se muestra acá — ver el comentario en
+    // _ContactFormSheetState sobre por qué esa opción no puede funcionar
+    // hoy (requiere vincular la cuenta del contacto, feature inexistente).
     final channels = [
-      if (contact.notifyPush) 'Push',
       if (contact.notifySms) 'SMS',
       if (contact.notifyWhatsapp) 'WhatsApp',
     ];
@@ -243,7 +245,18 @@ class _ContactFormSheetState extends ConsumerState<_ContactFormSheet> {
   late final _relationshipController = TextEditingController(
     text: widget.contact?.relationship,
   );
-  late bool _notifyPush = widget.contact?.notifyPush ?? true;
+  // Bug real reportado en vivo: este toggle arrancaba en `true` por
+  // defecto y prometía "notificación push" — pero `back/src/alerts/
+  // dispatch.ts` solo manda un push si el contacto tiene un
+  // `contact_user_id` (la cuenta de Sentinel de esa persona, vinculada a
+  // este registro), y hoy no existe ningún flujo en la app para vincular
+  // eso. Resultado: el toggle nunca podía hacer nada, para nadie, nunca —
+  // no es un envío que "todavía no llegó", es una opción que no está
+  // conectada a ninguna funcionalidad real. Se saca del formulario en vez
+  // de dejarla prometiendo algo que no se puede cumplir; vincular la
+  // cuenta del contacto es una feature aparte, más grande, todavía sin
+  // construir.
+  static const _notifyPush = false;
   late bool _notifySms = widget.contact?.notifySms ?? false;
   late bool _notifyWhatsapp = widget.contact?.notifyWhatsapp ?? false;
 
@@ -356,17 +369,6 @@ class _ContactFormSheetState extends ConsumerState<_ContactFormSheet> {
               Text(
                 'Cómo avisarle',
                 style: Theme.of(context).textTheme.labelLarge,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Notificación push'),
-                subtitle: const Text(
-                  'Solo si esta persona también tiene la app instalada.',
-                ),
-                value: _notifyPush,
-                onChanged: isSaving
-                    ? null
-                    : (value) => setState(() => _notifyPush = value),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,

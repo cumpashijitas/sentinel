@@ -30,7 +30,7 @@ class AccidentMonitorServiceImpl implements AccidentMonitorService {
     required this._alertNotifier,
     required this._authRepository,
     this._detectionService = const AccidentDetectionService(),
-    this.countdown = const Duration(seconds: 20),
+    this.countdown = const Duration(seconds: 30),
   });
 
   final MotionTracker _motionTracker;
@@ -40,8 +40,11 @@ class AccidentMonitorServiceImpl implements AccidentMonitorService {
   final AccidentDetectionService _detectionService;
 
   /// How long the rider has to tap "Estoy bien" before a candidate is
-  /// auto-confirmed. 20s is a placeholder, not a calibrated value — see
-  /// `docs/accident_detection.md`.
+  /// auto-confirmed. Pedido explícito en vivo: 20s resultaba muy corto
+  /// para de verdad frenar, sacarse el guante/casco y tocar la
+  /// notificación — 30s da un poco más de margen real sin alargar
+  /// demasiado el tiempo hasta que el grupo se entera de un accidente
+  /// real.
   final Duration countdown;
 
   StreamSubscription<MotionSample>? _motionSubscription;
