@@ -1,0 +1,104 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Bug real encontrado en vivo: este permiso solo estaba declarado en
+         android/app/src/debug/AndroidManifest.xml (el comentario ahí lo
+         explica como "necesario para desarrollo" — hot reload, etc. — pero
+         sin darse cuenta de que sin repetirlo acá, el build RELEASE se
+         queda sin ningún permiso de red en absoluto). Sin esto, el APK
+         instalado no podía abrir ninguna conexión a ningún lado —
+         cleartext, HTTPS, LAN o túnel, daba igual — por eso "no se pudo
+         conectar con el servidor" pasaba siempre, sin importar qué URL
+         apuntara API_BASE_URL. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Fase 6 — RideBackgroundService. Lets the app receive location
+         updates from a context the OS doesn't consider "foreground" (a
+         Service with no visible Activity), which is exactly what a
+         foreground service with a persistent notification is. Required
+         from API 29+ for any such access; Play Store additionally requires
+         a prominent in-app disclosure before requesting it in production
+         (not implemented yet — see docs/background_service.md, deuda
+         técnica). -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <!-- Lets RideBackgroundService call startForeground() at all. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <!-- API 34+ additionally requires declaring the specific foreground
+         service *type* as its own permission, matching
+         android:foregroundServiceType="location" on the <service> below. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <!-- API 33+ requires runtime consent to show the persistent tracking
+         notification at all (without it, the foreground service still runs,
+         it just can't display anything). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Fase 7 — accident detection. Accelerometer/gyroscope need no
+         runtime permission (normal protection level), but declaring them
+         as optional hardware features keeps the Play Store from filtering
+         out devices that happen to lack one — `MotionTracker.isAvailable()`
+         already degrades gracefully at runtime for exactly that case. -->
+    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false"/>
+    <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false"/>
+    <application
+        android:label="Sentinel"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:networkSecurityConfig="@xml/network_security_config">
+        <!-- Sourced from the MAPS_API_KEY Gradle property (see
+             android/app/build.gradle.kts) — never hardcoded here. Empty by
+             default; set it in android/local.properties
+             (`MAPS_API_KEY=...`, gitignored) or pass
+             `-PMAPS_API_KEY=...` to Gradle to render real map tiles. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}"/>
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Fase 6 — keeps sharing this rider's position for an active ride
+             session while the app is backgrounded or the screen is off.
+             `exported="false"`: only this app can start it. `stopWithTask`
+             deliberately left at its default `true` is NOT what we want
+             here — see the explicit override below and the comment in
+             RideBackgroundService.kt's onTaskRemoved for why it stays
+             running even if the user swipes Sentinel away from Recents. -->
+        <service
+            android:name=".RideBackgroundService"
+            android:exported="false"
+            android:foregroundServiceType="location"
+            android:stopWithTask="false"/>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>

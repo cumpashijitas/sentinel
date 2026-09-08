@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Bug real encontrado en vivo instalando el APK release en un celular: la
+  única excepción de cleartext (HTTP, no HTTPS) que existía vivía en
+  android/app/src/debug/ (ver ese archivo) — un source set que Gradle
+  jamás mezcla en un build `release`, por diseño de Flutter. Android
+  bloquea cleartext a cualquier host por defecto desde API 28
+  (targetSdkVersion de este proyecto es más nuevo todavía), así que el
+  release APK no podía llegar a `back/` en absoluto vía `http://`
+  (`API_BASE_URL` en front/.env) — fallaba con "no se pudo conectar",
+  sin importar que el backend estuviera perfectamente arriba y alcanzable.
+
+  Esta versión vive en src/main/ (no en src/debug/), así que SÍ se incluye
+  en release — y permite cleartext a cualquier host, no solo a una IP de
+  LAN fija: la alternativa (listar `192.168.0.19` a mano) se rompe cada
+  vez que el DHCP de tu router le cambie la IP a esta PC, exactamente lo
+  que ya le había pasado a la versión vieja de este archivo (tenía
+  `192.168.0.20`, ya no correspondía a nada).
+
+  Esto es apropiado para un build de campo/prueba física como este, no
+  para publicar en Play Store: el día que `back/` se despliegue de verdad
+  detrás de HTTPS (un dominio real, certificado real), `API_BASE_URL` deja
+  de ser `http://` y esta excepción deja de aplicar a nada — se puede
+  borrar este archivo entero en ese momento sin que nada dependa de él.
+-->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="true">
+    <trust-anchors>
+      <certificates src="system"/>
+    </trust-anchors>
+  </base-config>
+</network-security-config>
