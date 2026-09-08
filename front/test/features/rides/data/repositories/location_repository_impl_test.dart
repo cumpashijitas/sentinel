@@ -67,6 +67,9 @@ class _FakeLocationTracker implements LocationTracker {
 
   @override
   Stream<LocationFix> watchPosition() => _controller.stream;
+
+  @override
+  Future<LocationFix?> getCurrentFix() async => null;
 }
 
 class _FakeLiveLocationRepository implements LiveLocationRepository {

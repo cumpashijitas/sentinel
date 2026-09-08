@@ -77,19 +77,31 @@ final _members = [
 
 class _FakeGroupRepository implements GroupRepository {
   String? lastLeftGroupId;
+  RideGroup group = _group;
+  List<GroupMember> members = List.of(_members);
 
   @override
-  Future<List<RideGroup>> fetchMyGroups(String userId) async => [_group];
+  Future<List<RideGroup>> fetchMyGroups(String userId) async => [group];
 
   @override
-  Future<RideGroup> fetchGroup(String groupId) async => _group;
+  Future<RideGroup> fetchGroup(String groupId) async => group;
 
   @override
-  Future<List<GroupMember>> fetchMembers(String groupId) async => _members;
+  Future<List<GroupMember>> fetchMembers(String groupId) async => members;
 
   @override
   Future<RideGroup> createGroup({required String name, String? description}) =>
       throw UnimplementedError();
+
+  @override
+  Future<RideGroup> updateGroup({
+    required String groupId,
+    required String name,
+    String? description,
+  }) async {
+    group = group.copyWith(name: name, description: description);
+    return group;
+  }
 
   @override
   Future<String> joinGroupByCode(String inviteCode) =>
@@ -99,6 +111,32 @@ class _FakeGroupRepository implements GroupRepository {
   Future<void> leaveGroup(String groupId) async {
     lastLeftGroupId = groupId;
   }
+
+  @override
+  Future<void> setMemberRole({
+    required String groupId,
+    required String targetUserId,
+    required GroupMemberRole role,
+  }) async {
+    members = [
+      for (final m in members)
+        if (m.userId == targetUserId) m.copyWith(role: role) else m,
+    ];
+  }
+
+  @override
+  Future<void> removeMember({
+    required String groupId,
+    required String targetUserId,
+  }) async {
+    members = members.where((m) => m.userId != targetUserId).toList();
+  }
+
+  @override
+  Future<RideGroup> setPinnedNote({required String groupId, String? note}) async {
+    group = group.copyWith(pinnedNote: note);
+    return group;
+  }
 }
 
 /// GroupDetailPage also shows the group's active-ride status
@@ -106,6 +144,7 @@ class _FakeGroupRepository implements GroupRepository {
 class _FakeRideSessionRepository implements RideSessionRepository {
   RideSession? activeSession;
   String? lastStartedGroupId;
+  String? lastFinishedId;
 
   @override
   Future<RideSession?> fetchActiveSession(String groupId) async =>
@@ -137,8 +176,11 @@ class _FakeRideSessionRepository implements RideSessionRepository {
   }
 
   @override
-  Future<RideSession> finishSession(String sessionId) =>
-      throw UnimplementedError();
+  Future<RideSession> finishSession(String sessionId) async {
+    lastFinishedId = sessionId;
+    activeSession = activeSession?.copyWith(status: RideSessionStatus.finished);
+    return activeSession!;
+  }
 
   @override
   Future<List<RideHistoryEntry>> fetchHistory(String userId) =>
@@ -169,6 +211,12 @@ void main() {
           path: '/rides/:id',
           builder: (context, state) => Scaffold(
             body: Text('route: /rides/${state.pathParameters['id']}'),
+          ),
+        ),
+        GoRoute(
+          path: '/rides/:id/map',
+          builder: (context, state) => Scaffold(
+            body: Text('route: /rides/${state.pathParameters['id']}/map'),
           ),
         ),
       ],
@@ -202,6 +250,8 @@ void main() {
     ) async {
       await pumpDetailPage(tester, asUser: 'u2');
 
+      // El título aparece tanto en el header (SectionHeader) como en el
+      // cuerpo de la pantalla.
       expect(find.text('Ruta de los Domingos'), findsWidgets);
       expect(find.text('SUNDAY01'), findsOneWidget);
       expect(find.text('Ana Rider'), findsOneWidget);
@@ -209,6 +259,36 @@ void main() {
       expect(find.text('Propietario'), findsOneWidget);
       expect(find.text('Miembro'), findsOneWidget);
     });
+
+    testWidgets(
+      // Bug real reportado en vivo: editar usaba el mismo controlador que
+      // "salir del grupo", cuyo listener saca al usuario de la pantalla en
+      // cuanto ve loading→data — guardar una edición disparaba ese mismo
+      // listener y competía con el propio cierre del sheet, dejando la
+      // edición "trabada" sin guardar nada visible. Un controlador
+      // separado (`groupEditControllerProvider`) corta esa interferencia.
+      'editing the group updates its name without leaving the page',
+      (tester) async {
+        await pumpDetailPage(tester, asUser: 'u1');
+
+        await tester.tap(find.byTooltip('Editar grupo'));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Nombre'),
+          'Ruta Renombrada',
+        );
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Guardar'));
+        await tester.pumpAndSettle();
+
+        // El sheet se cerró solo (no quedó "trabado") y el título del
+        // header ya refleja el nuevo nombre — seguimos en GroupDetailPage,
+        // no nos sacó de la pantalla.
+        expect(find.text('Editar grupo'), findsNothing);
+        expect(find.text('Ruta Renombrada'), findsWidgets);
+        expect(find.text('SUNDAY01'), findsOneWidget);
+      },
+    );
 
     testWidgets('shows a leave button for a non-owner member', (tester) async {
       await pumpDetailPage(tester, asUser: 'u2');
@@ -225,6 +305,16 @@ void main() {
       expect(
         find.widgetWithText(OutlinedButton, 'Salir del grupo'),
         findsNothing,
+      );
+      // El "no hay viaje activo" del admin ahora reusa `EmptyState`, más
+      // alto que la fila compacta que tenía antes — en la lista de
+      // `ListView` de esta pantalla eso empuja este texto fuera del rango
+      // que el sliver construye sin haber hecho scroll. Un usuario real
+      // simplemente baja para verlo, así que el test hace lo mismo en vez
+      // de asumir que todo cabe sin scroll.
+      await tester.scrollUntilVisible(
+        find.textContaining('no puedes abandonar'),
+        200,
       );
       expect(find.textContaining('no puedes abandonar'), findsOneWidget);
     });
@@ -268,7 +358,7 @@ void main() {
       },
     );
 
-    testWidgets('starting a ride navigates to its session page', (
+    testWidgets('starting a ride navigates straight to its map', (
       tester,
     ) async {
       await pumpDetailPage(tester, asUser: 'u1');
@@ -277,7 +367,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fakeRideSessionRepository.lastStartedGroupId, 'g1');
-      expect(find.text('route: /rides/s1'), findsOneWidget);
+      expect(find.text('route: /rides/s1/map'), findsOneWidget);
     });
 
     testWidgets('shows "open the active ride" when a session is active', (
@@ -294,12 +384,121 @@ void main() {
 
       await pumpDetailPage(tester, asUser: 'u2');
 
-      expect(find.text('Ver viaje'), findsOneWidget);
+      expect(find.text('Ver mapa'), findsOneWidget);
 
-      await tester.tap(find.text('Ver viaje'));
+      await tester.tap(find.text('Ver mapa'));
       await tester.pumpAndSettle();
 
-      expect(find.text('route: /rides/s1'), findsOneWidget);
+      expect(find.text('route: /rides/s1/map'), findsOneWidget);
     });
+
+    testWidgets(
+      // Antes no existía ninguna forma de delegar permisos — el único
+      // rol posible después de crear el grupo era "member" para siempre.
+      'the owner can promote a member to admin',
+      (tester) async {
+        await pumpDetailPage(tester, asUser: 'u1');
+
+        await tester.scrollUntilVisible(find.text('Bruno Rider'), 200);
+        await tester.tap(
+          find.descendant(
+            of: find.ancestor(
+              of: find.text('Bruno Rider'),
+              matching: find.byType(Row),
+            ),
+            matching: find.byIcon(Icons.more_vert),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Hacer admin'));
+        await tester.pumpAndSettle();
+
+        expect(fakeGroupRepository.members[1].role, GroupMemberRole.admin);
+        expect(find.text('Admin'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      // Antes tampoco existía forma de sacar a alguien del grupo — solo
+      // podía irse por su cuenta.
+      'the owner can remove a member after confirming',
+      (tester) async {
+        await pumpDetailPage(tester, asUser: 'u1');
+
+        await tester.scrollUntilVisible(find.text('Bruno Rider'), 200);
+        await tester.tap(
+          find.descendant(
+            of: find.ancestor(
+              of: find.text('Bruno Rider'),
+              matching: find.byType(Row),
+            ),
+            matching: find.byIcon(Icons.more_vert),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Expulsar del grupo'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, 'Expulsar'));
+        await tester.pumpAndSettle();
+
+        expect(fakeGroupRepository.members, hasLength(1));
+        expect(find.text('Bruno Rider'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      // Antes, terminar un viaje solo se podía hacer entrando al mapa y
+      // después al detalle del viaje — dos pasos de más para algo que
+      // pasa justo desde esta pantalla.
+      'an admin can finish an active ride directly from the group screen',
+      (tester) async {
+        fakeRideSessionRepository.activeSession = RideSession(
+          id: 's1',
+          groupId: 'g1',
+          startedBy: 'u1',
+          status: RideSessionStatus.active,
+          startedAt: DateTime.utc(2026, 8, 27),
+          createdAt: DateTime.utc(2026, 8, 27),
+        );
+
+        await pumpDetailPage(tester, asUser: 'u1');
+
+        await tester.tap(find.widgetWithText(OutlinedButton, 'Finalizar viaje'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, 'Finalizar'));
+        await tester.pumpAndSettle();
+
+        expect(fakeRideSessionRepository.lastFinishedId, 's1');
+      },
+    );
+
+    testWidgets(
+      // Antes no había forma de avisarle algo a todo el grupo desde
+      // adentro de la app.
+      'an admin can set and then clear the group note',
+      (tester) async {
+        await pumpDetailPage(tester, asUser: 'u1');
+
+        expect(find.text('Sin avisos por ahora.'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Fijar aviso'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Aviso (visible para todo el grupo)'),
+          'Salida el sábado a las 9am',
+        );
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Guardar'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Salida el sábado a las 9am'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Editar aviso'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, 'Quitar aviso'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Sin avisos por ahora.'), findsOneWidget);
+      },
+    );
   });
 }

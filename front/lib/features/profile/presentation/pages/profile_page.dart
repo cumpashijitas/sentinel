@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
+import '../../../../shared/widgets/section_header.dart';
 import '../../domain/entities/profile.dart';
 import '../controllers/profile_controller.dart';
 
@@ -85,27 +87,33 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final isSaving = ref.watch(profileControllerProvider).isLoading;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Perfil')),
-      body: switch (profileAsync) {
-        AsyncData(:final value) => _ProfileForm(
-          formKey: _formKey,
-          displayNameController: _displayNameController,
-          phoneController: _phoneController,
-          avatarUrl: value.avatarUrl,
-          whatsappAlertsOptIn: _whatsappAlertsOptIn,
-          onWhatsappAlertsOptInChanged: (checked) =>
-              setState(() => _whatsappAlertsOptIn = checked),
-          isSaving: isSaving,
-          onSubmit: _submit,
-        ),
-        AsyncError(:final error) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(error.toString(), textAlign: TextAlign.center),
+      body: Column(
+        children: [
+          const SectionHeader(icon: Icons.person_rounded, title: 'Perfil'),
+          Expanded(
+            child: switch (profileAsync) {
+              AsyncData(:final value) => _ProfileForm(
+                formKey: _formKey,
+                displayNameController: _displayNameController,
+                phoneController: _phoneController,
+                avatarUrl: value.avatarUrl,
+                whatsappAlertsOptIn: _whatsappAlertsOptIn,
+                onWhatsappAlertsOptInChanged: (checked) =>
+                    setState(() => _whatsappAlertsOptIn = checked),
+                isSaving: isSaving,
+                onSubmit: _submit,
+              ),
+              AsyncError(:final error) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(error.toString(), textAlign: TextAlign.center),
+                ),
+              ),
+              _ => const Center(child: CircularProgressIndicator()),
+            },
           ),
-        ),
-        _ => const Center(child: CircularProgressIndicator()),
-      },
+        ],
+      ),
     );
   }
 }
@@ -133,12 +141,13 @@ class _ProfileForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
+          constraints: const BoxConstraints(maxWidth: 420),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             child: Form(
               key: formKey,
               child: Column(
@@ -147,21 +156,27 @@ class _ProfileForm extends StatelessWidget {
                 children: [
                   Center(
                     child: CircleAvatar(
-                      radius: 40,
+                      radius: 44,
+                      backgroundColor: colorScheme.primaryContainer,
                       backgroundImage: avatarUrl != null
                           ? NetworkImage(avatarUrl!)
                           : null,
                       child: avatarUrl == null
-                          ? const Icon(Icons.person_outline, size: 40)
+                          ? Icon(
+                              Icons.person_rounded,
+                              size: 40,
+                              color: colorScheme.onPrimaryContainer,
+                            )
                           : null,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.xxl),
                   AppTextField(
                     label: 'Nombre',
                     controller: displayNameController,
                     textInputAction: TextInputAction.next,
                     enabled: !isSaving,
+                    prefixIcon: Icons.badge_outlined,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Ingresa tu nombre.';
@@ -169,26 +184,30 @@ class _ProfileForm extends StatelessWidget {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   AppTextField(
                     label: 'Teléfono (opcional)',
                     controller: phoneController,
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.done,
                     enabled: !isSaving,
+                    prefixIcon: Icons.phone_outlined,
                   ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Alertas de accidente por WhatsApp'),
-                    subtitle: const Text(
-                      'Tus compañeros de viaje podrán avisarte por WhatsApp '
-                      'si confirman un accidente.',
+                  const SizedBox(height: AppSpacing.lg),
+                  Card(
+                    child: SwitchListTile(
+                      title: const Text('Alertas de accidente por WhatsApp'),
+                      subtitle: const Text(
+                        'Tus compañeros de viaje podrán avisarte por WhatsApp '
+                        'si confirman un accidente.',
+                      ),
+                      value: whatsappAlertsOptIn,
+                      onChanged: isSaving
+                          ? null
+                          : onWhatsappAlertsOptInChanged,
                     ),
-                    value: whatsappAlertsOptIn,
-                    onChanged: isSaving ? null : onWhatsappAlertsOptInChanged,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.xl),
                   PrimaryButton(
                     label: 'Guardar',
                     isLoading: isSaving,

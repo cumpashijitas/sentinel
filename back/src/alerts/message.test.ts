@@ -41,25 +41,36 @@ describe('buildAlertMessage', () => {
 });
 
 describe('buildWhatsAppTemplateParams', () => {
-  it('returns 3 ordered values, map link as the 3rd when present', () => {
+  // Named parameters (rider_name/time/location), not positional {{1}}/{{2}}/
+  // {{3}} — Meta stopped accepting purely-numbered variables in newly
+  // created templates, found live setting up this project's template. See
+  // message.ts's doc comment.
+  it('returns 3 named params, "location" carrying the map link when present', () => {
     const params = buildWhatsAppTemplateParams({
       riderName: 'Bruno Rider',
       occurredAt: '2026-08-28T14:07:00.000Z',
       latitude: -17.3942,
       longitude: -66.1574,
     });
-    expect(params.length).toBe(3);
-    expect(params[0]).toBe('Bruno Rider');
-    expect(params[2]).toBe('https://maps.google.com/?q=-17.3942,-66.1574');
+    expect(params).toEqual([
+      { name: 'rider_name', value: 'Bruno Rider' },
+      { name: 'time', value: expect.any(String) },
+      {
+        name: 'location',
+        value: 'https://maps.google.com/?q=-17.3942,-66.1574',
+      },
+    ]);
   });
 
-  it("3rd value is the fallback text when there's no location", () => {
+  it('"location" is the fallback text when there\'s no location', () => {
     const params = buildWhatsAppTemplateParams({
       riderName: 'Carla Rider',
       occurredAt: '2026-08-28T14:07:00.000Z',
       latitude: null,
       longitude: null,
     });
-    expect(params[2]).toBe('Sin ubicación disponible');
+    expect(params.find((p) => p.name === 'location')?.value).toBe(
+      'Sin ubicación disponible',
+    );
   });
 });

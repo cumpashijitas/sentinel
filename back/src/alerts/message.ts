@@ -45,13 +45,27 @@ export function buildAlertMessage(source: AccidentAlertSource): AlertMessage {
   };
 }
 
-/** Ordered parameters for the WhatsApp "accident_alert" template's {{1}}
- * {{2}} {{3}} placeholders — see docs/alerts.md for the exact approved
- * template text (must match buildAlertMessage's body, split into params). */
+export interface WhatsAppTemplateParam {
+  name: string;
+  value: string;
+}
+
+/** Named parameters for the WhatsApp "accident_alert" template's
+ * `{{rider_name}}`/`{{time}}`/`{{location}}` placeholders — see
+ * docs/alerts.md for the exact approved template text (must match
+ * buildAlertMessage's body). Meta stopped accepting purely-numbered
+ * `{{1}}`/`{{2}}`/`{{3}}` variables in newly created templates (found live
+ * creating this project's template) — sending a template message now also
+ * requires each parameter's `parameter_name` to match, not just position;
+ * see whatsapp.ts. */
 export function buildWhatsAppTemplateParams(
   source: AccidentAlertSource,
-): [string, string, string] {
+): WhatsAppTemplateParam[] {
   const time = formatTime(source.occurredAt);
   const mapLink = mapLinkOrNull(source);
-  return [source.riderName, time, mapLink ?? 'Sin ubicación disponible'];
+  return [
+    { name: 'rider_name', value: source.riderName },
+    { name: 'time', value: time },
+    { name: 'location', value: mapLink ?? 'Sin ubicación disponible' },
+  ];
 }

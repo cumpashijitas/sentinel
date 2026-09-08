@@ -24,6 +24,7 @@ import '../errors/app_exception.dart';
 class AppConfig {
   const AppConfig({
     required this.apiBaseUrl,
+    required this.webBaseUrl,
     required this.environmentName,
     required this.mapTilesUrl,
     required this.mapTileProvider,
@@ -59,6 +60,13 @@ class AppConfig {
 
     return AppConfig(
       apiBaseUrl: apiBaseUrl,
+      // Dónde vive el front servido como Web — no se puede inferir en
+      // runtime (Uri.base sería la URL actual del navegador SOLO si quien
+      // genera el link ya está en Web; en el APK no hay "URL actual" en
+      // absoluto), y quien abre el link siempre lo hace en un navegador
+      // sin importar desde qué plataforma se generó — tiene que ser un
+      // valor de configuración fijo, no algo derivado en el momento.
+      webBaseUrl: env['WEB_BASE_URL'] ?? 'http://localhost:8080',
       environmentName: env['ENVIRONMENT'] ?? 'dev',
       mapTilesUrl:
           env['MAP_TILES_URL'] ??
@@ -77,6 +85,12 @@ class AppConfig {
   /// and the live-location feed, goes through this backend — see
   /// `docs/architecture.md`. The only network address the front knows.
   final String apiBaseUrl;
+
+  /// Origen donde corre `flutter run -d web-server` / el deploy real de la
+  /// versión Web — usado únicamente para armar el link público de
+  /// `/share/<token>` (`EmergencySharePage`). Nunca se usa para llamadas de
+  /// red — eso siempre es [apiBaseUrl].
+  final String webBaseUrl;
   final String environmentName;
 
   // Config del mapa (`features/maps/domain/entities/map_tile_config.dart`,

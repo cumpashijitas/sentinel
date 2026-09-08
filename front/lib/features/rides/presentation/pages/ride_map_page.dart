@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../maps/domain/entities/map_coordinate.dart';
 import '../../../maps/domain/entities/map_viewport.dart';
@@ -83,7 +86,19 @@ class _RideMapPageState extends ConsumerState<RideMapPage> {
     final currentUserId = ref.watch(authStateChangesProvider).value?.id;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mapa del viaje')),
+      appBar: AppBar(
+        title: const Text('Mapa del viaje'),
+        actions: [
+          // El detalle del viaje (roster, finalizar) quedó "huérfano" al
+          // hacer que "Iniciar viaje"/"Ver mapa" traigan directo acá — este
+          // botón es el único camino de vuelta a esa pantalla ahora.
+          IconButton(
+            tooltip: 'Detalles del viaje',
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => context.push('/rides/${widget.sessionId}'),
+          ),
+        ],
+      ),
       body: switch (membersAsync) {
         AsyncData(:final value) => _RideMapBody(
           members: value,
@@ -143,6 +158,42 @@ class _RideMapBodyState extends ConsumerState<_RideMapBody> {
   // propósito mientras mira el mapa.
   bool _hasCenteredOnRealData = false;
 
+  // Segundo bug real, más común que el anterior: si NADIE del grupo tocó
+  // todavía "Compartir en el viaje" (el caso normal al abrir el mapa por
+  // primera vez), `widget.members` nunca tiene un solo fix, así que
+  // `_maybeCenterOnRealData` nunca dispara y el mapa se queda para
+  // siempre en (0,0) — un océano azul sin nada reconocible, que se lee
+  // exactamente igual que "el mapa no carga" aunque los tiles sí están
+  // llegando. Pedir la posición del propio dispositivo (sin esperar a
+  // que nadie más comparta) y centrar ahí apenas esté disponible cubre
+  // ese caso — funciona igual en Web y en la app, vía el mismo
+  // `LocationTracker` que ya usa el resto de la feature (nunca
+  // `Geolocator` directo desde una página — ver su doc comment). Es un
+  // `Future` de GPS corriendo en paralelo a `onMapReady` (el mapa puede
+  // quedar listo antes o después de que el GPS responda) — se guarda acá
+  // y ambos lados (`onMapReady` y la respuesta del GPS, lo que llegue
+  // último) consultan/aplican lo que ya está disponible.
+  MapCoordinate? _deviceCenter;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_centerOnDeviceLocation());
+  }
+
+  Future<void> _centerOnDeviceLocation() async {
+    final fix = await ref.read(locationTrackerProvider).getCurrentFix();
+    if (fix == null || !mounted || _hasCenteredOnRealData) return;
+    _deviceCenter = MapCoordinate(
+      latitude: fix.latitude,
+      longitude: fix.longitude,
+    );
+    final controller = _mapController;
+    if (controller != null) {
+      unawaited(controller.centerOnCoordinate(_deviceCenter!, zoom: 14));
+    }
+  }
+
   @override
   void didUpdateWidget(_RideMapBody oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -181,6 +232,8 @@ class _RideMapBodyState extends ConsumerState<_RideMapBody> {
         )
         .toList(growable: false);
     if (coordinates.isEmpty) return;
+    // Un fix real de otro miembro siempre gana sobre el centrado en la
+    // posición propia — ver el fixed del propio dispositivo más abajo.
     _hasCenteredOnRealData = true;
     unawaited(controller.fitBounds(coordinates));
   }
@@ -215,6 +268,12 @@ class _RideMapBodyState extends ConsumerState<_RideMapBody> {
                 onMapReady: (controller) {
                   _mapController = controller;
                   _pushMarkers();
+                  final deviceCenter = _deviceCenter;
+                  if (deviceCenter != null && !_hasCenteredOnRealData) {
+                    unawaited(
+                      controller.centerOnCoordinate(deviceCenter, zoom: 14),
+                    );
+                  }
                 },
               ),
               Positioned(
@@ -227,8 +286,8 @@ class _RideMapBodyState extends ConsumerState<_RideMapBody> {
                   ),
                   label: Text(
                     widget.isSharing
-                        ? 'Dejar de compartir'
-                        : 'Compartir mi ubicación',
+                        ? 'Dejar de compartir en el viaje'
+                        : 'Compartir en el viaje',
                   ),
                 ),
               ),
@@ -249,14 +308,20 @@ class _MemberStatusList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxHeight: 160),
+      constraints: const BoxConstraints(maxHeight: 180),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppRadius.lg),
+        ),
       ),
       child: members.isEmpty
           ? const Center(child: Text('Sin participantes.'))
           : ListView.builder(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.sm,
+              ),
               itemCount: members.length,
               itemBuilder: (context, index) =>
                   _MemberStatusTile(member: members[index]),
@@ -265,6 +330,10 @@ class _MemberStatusList extends StatelessWidget {
   }
 }
 
+/// Reescrito con `Row`/`Column` liso — sin `ListTile`, sin `StatusChip` —
+/// mismo motivo que `group_detail_page.dart`: sacar del medio toda
+/// dependencia compartida en las pantallas donde el contenido dejó de
+/// pintarse en un navegador real sin ningún error visible.
 class _MemberStatusTile extends StatelessWidget {
   const _MemberStatusTile({required this.member});
 
@@ -272,22 +341,94 @@ class _MemberStatusTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      leading: CircleAvatar(
-        radius: 16,
-        backgroundImage: member.avatarUrl != null
-            ? NetworkImage(member.avatarUrl!)
-            : null,
-        child: member.avatarUrl == null
-            ? const Icon(Icons.person_outline, size: 16)
-            : null,
+    final statusColor = _statusColor(member.status);
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
       ),
-      title: Text(member.displayName),
-      subtitle: Text(_lastSeenLabel(member.fix?.recordedAt)),
-      trailing: Text(memberStatusLabel(member.status)),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: const Color(0xFF4A2415),
+            foregroundColor: Colors.white,
+            backgroundImage: member.avatarUrl != null
+                ? NetworkImage(member.avatarUrl!)
+                : null,
+            child: member.avatarUrl == null
+                ? const Icon(Icons.person_outline, size: 16)
+                : null,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  member.displayName,
+                  style: const TextStyle(fontSize: 16, color: Colors.white),
+                ),
+                Text(
+                  _lastSeenLabel(member.fix?.recordedAt),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textMuted,
+                  ),
+                ),
+                // Telemetría (velocidad + coordenadas) en fuente
+                // monoespaciada, como cualquier otro dato numérico del
+                // tablero — solo cuando hay un fix real.
+                if (member.fix != null)
+                  Text(
+                    '${_speedLabel(member.fix!.speed)} · '
+                    '${member.fix!.latitude.toStringAsFixed(4)}, '
+                    '${member.fix!.longitude.toStringAsFixed(4)}',
+                    style: AppTheme.telemetryStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(color: statusColor.withValues(alpha: 0.6)),
+            ),
+            child: Text(
+              memberStatusLabel(member.status),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: statusColor,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
+
+  static String _speedLabel(double? metersPerSecond) {
+    if (metersPerSecond == null) return '-- km/h';
+    final kmh = (metersPerSecond * 3.6).round();
+    return '$kmh km/h';
+  }
+
+  static Color _statusColor(MemberTrackingStatus status) => switch (status) {
+    MemberTrackingStatus.active => AppTheme.accent,
+    MemberTrackingStatus.stale => AppTheme.textSecondary,
+    MemberTrackingStatus.lagging => AppTheme.textSecondary,
+    MemberTrackingStatus.offline => AppTheme.textMuted,
+    MemberTrackingStatus.possibleIncident => AppTheme.sos,
+  };
 
   static String _lastSeenLabel(DateTime? recordedAt) {
     if (recordedAt == null) return 'Sin datos';

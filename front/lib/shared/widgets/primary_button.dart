@@ -7,24 +7,34 @@ class PrimaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.isLoading = false,
+    this.icon,
     super.key,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: isLoading ? null : onPressed,
-      child: isLoading
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            )
-          : Text(label),
+    if (isLoading) {
+      return const ElevatedButton(
+        onPressed: null,
+        child: SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+      );
+    }
+    if (icon == null) {
+      return ElevatedButton(onPressed: onPressed, child: Text(label));
+    }
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon),
+      label: Text(label),
     );
   }
 }

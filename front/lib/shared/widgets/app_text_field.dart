@@ -12,6 +12,8 @@ class AppTextField extends StatelessWidget {
     this.autofillHints,
     this.validator,
     this.enabled = true,
+    this.prefixIcon,
+    this.hintText,
     super.key,
   });
 
@@ -23,6 +25,8 @@ class AppTextField extends StatelessWidget {
   final Iterable<String>? autofillHints;
   final String? Function(String?)? validator;
   final bool enabled;
+  final IconData? prefixIcon;
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +38,11 @@ class AppTextField extends StatelessWidget {
       autofillHints: autofillHints,
       validator: validator,
       enabled: enabled,
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        prefixIcon: prefixIcon == null ? null : Icon(prefixIcon),
+      ),
     );
   }
 }

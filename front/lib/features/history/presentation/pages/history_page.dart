@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../app/app_drawer.dart';
-import '../../../../app/hub_navigation.dart';
+import '../../../../app/hub_scaffold.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/responsive_content.dart';
+import '../../../../shared/widgets/status_chip.dart';
+import '../../../../shared/widgets/timeline_tile.dart';
 import '../../../accidents/domain/entities/accident_event.dart';
 import '../../../rides/domain/entities/ride_history_entry.dart';
 import '../../domain/entities/ride_statistics.dart';
@@ -14,29 +17,25 @@ import '../controllers/history_controller.dart';
 /// Fase 9: three tabs over data the user already produced elsewhere in the
 /// app — completed rides, past accident events, and a few numbers derived
 /// from both. Nothing here writes anything; it's read-only, same spirit as
-/// `RideSessionPage` showing history rather than driving it. On narrow
-/// layouts, [AppDrawer] on this page's `Scaffold` replaces the back arrow
-/// — see that class's doc comment.
+/// `RideSessionPage` showing history rather than driving it.
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
+    return const DefaultTabController(
       length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Historial'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Viajes'),
-              Tab(text: 'Accidentes'),
-              Tab(text: 'Estadísticas'),
-            ],
-          ),
+      child: HubScaffold(
+        title: 'Historial',
+        icon: Icons.history_rounded,
+        bottom: TabBar(
+          tabs: [
+            Tab(text: 'Viajes'),
+            Tab(text: 'Accidentes'),
+            Tab(text: 'Estadísticas'),
+          ],
         ),
-        drawer: showsHubRail(context) ? null : const AppDrawer(),
-        body: const ResponsiveContent(
+        body: ResponsiveContent(
           child: TabBarView(
             children: [
               _RideHistoryTab(),
@@ -62,16 +61,23 @@ class _RideHistoryTab extends ConsumerWidget {
     return switch (ridesAsync) {
       AsyncData(:final value) =>
         value.isEmpty
-            ? const _EmptyState(
+            ? const EmptyState(
                 icon: Icons.pedal_bike_outlined,
                 message: 'Todavía no completaste ningún viaje.',
               )
             : ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.xxxl,
+                ),
                 itemCount: value.length,
                 itemBuilder: (context, index) => _RideHistoryTile(
                   entry: value[index],
                   dateFormat: _dateFormat,
+                  isFirst: index == 0,
+                  isLast: index == value.length - 1,
                 ),
               ),
       AsyncError(:final error) => _ErrorState(error: error),
@@ -81,27 +87,47 @@ class _RideHistoryTab extends ConsumerWidget {
 }
 
 class _RideHistoryTile extends StatelessWidget {
-  const _RideHistoryTile({required this.entry, required this.dateFormat});
+  const _RideHistoryTile({
+    required this.entry,
+    required this.dateFormat,
+    required this.isFirst,
+    required this.isLast,
+  });
 
   final RideHistoryEntry entry;
   final DateFormat dateFormat;
+  final bool isFirst;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     final duration = entry.duration;
-    return ListTile(
-      leading: const CircleAvatar(child: Icon(Icons.pedal_bike_outlined)),
-      title: Text(
-        entry.name?.trim().isNotEmpty ?? false ? entry.name! : entry.groupName,
-      ),
-      subtitle: Text(
-        [
-          entry.groupName,
-          dateFormat.format(entry.startedAt.toLocal()),
-          if (duration != null) _formatDuration(duration),
-        ].join(' · '),
-      ),
+    final colorScheme = Theme.of(context).colorScheme;
+    return TimelineTile(
+      isFirst: isFirst,
+      isLast: isLast,
+      color: colorScheme.primary,
+      icon: Icons.pedal_bike_rounded,
       onTap: () => context.push('/rides/${entry.sessionId}'),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          title: Text(
+            entry.name?.trim().isNotEmpty ?? false
+                ? entry.name!
+                : entry.groupName,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          subtitle: Text(
+            [
+              entry.groupName,
+              dateFormat.format(entry.startedAt.toLocal()),
+              if (duration != null) _formatDuration(duration),
+            ].join(' · '),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded),
+        ),
+      ),
     );
   }
 
@@ -125,16 +151,23 @@ class _AccidentHistoryTab extends ConsumerWidget {
     return switch (accidentsAsync) {
       AsyncData(:final value) =>
         value.isEmpty
-            ? const _EmptyState(
+            ? const EmptyState(
                 icon: Icons.shield_outlined,
                 message: 'No hay eventos de accidente registrados.',
               )
             : ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.xxxl,
+                ),
                 itemCount: value.length,
                 itemBuilder: (context, index) => _AccidentHistoryTile(
                   event: value[index],
                   dateFormat: _dateFormat,
+                  isFirst: index == 0,
+                  isLast: index == value.length - 1,
                 ),
               ),
       AsyncError(:final error) => _ErrorState(error: error),
@@ -144,22 +177,41 @@ class _AccidentHistoryTab extends ConsumerWidget {
 }
 
 class _AccidentHistoryTile extends StatelessWidget {
-  const _AccidentHistoryTile({required this.event, required this.dateFormat});
+  const _AccidentHistoryTile({
+    required this.event,
+    required this.dateFormat,
+    required this.isFirst,
+    required this.isLast,
+  });
 
   final AccidentEvent event;
   final DateFormat dateFormat;
+  final bool isFirst;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     final (label, color) = _statusLabelAndColor(context, event.status);
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.15),
-        child: Icon(Icons.warning_amber_outlined, color: color),
-      ),
-      title: Text(dateFormat.format(event.occurredAt.toLocal())),
-      subtitle: Text(label),
+    return TimelineTile(
+      isFirst: isFirst,
+      isLast: isLast,
+      color: color,
+      icon: Icons.warning_amber_rounded,
       onTap: () => context.push('/accidents/${event.id}'),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          title: Text(dateFormat.format(event.occurredAt.toLocal())),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: StatusChip(label: label, color: color),
+            ),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded),
+        ),
+      ),
     );
   }
 
@@ -203,27 +255,34 @@ class _StatisticsBody extends StatelessWidget {
     final hours = stats.totalRideDuration.inHours;
     final minutes = stats.totalRideDuration.inMinutes.remainder(60);
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return GridView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: AppSpacing.md,
+        crossAxisSpacing: AppSpacing.md,
+        childAspectRatio: 1.1,
+      ),
       children: [
         _StatTile(
-          icon: Icons.pedal_bike_outlined,
+          icon: Icons.pedal_bike_rounded,
           label: 'Viajes completados',
           value: '${stats.totalRides}',
         ),
         _StatTile(
-          icon: Icons.timer_outlined,
+          icon: Icons.timer_rounded,
           label: 'Tiempo total en ruta',
           value: hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m',
         ),
         _StatTile(
-          icon: Icons.warning_amber_outlined,
+          icon: Icons.warning_amber_rounded,
           label: 'Accidentes confirmados',
           value: '${stats.totalAccidents}',
+          color: Theme.of(context).colorScheme.tertiary,
         ),
         if (stats.lastRideAt != null)
           _StatTile(
-            icon: Icons.event_outlined,
+            icon: Icons.event_rounded,
             label: 'Último viaje',
             value: DateFormat.yMMMd().format(stats.lastRideAt!.toLocal()),
           ),
@@ -237,44 +296,31 @@ class _StatTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.color,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final tint = color ?? Theme.of(context).colorScheme.primary;
     return Card(
-      child: ListTile(
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        title: Text(label),
-        trailing: Text(value, style: Theme.of(context).textTheme.titleMedium),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.icon, required this.message});
-
-  final IconData icon;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, size: 48, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 16),
+            Icon(icon, color: tint, size: 26),
+            Text(value, style: Theme.of(context).textTheme.headlineSmall),
             Text(
-              message,
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

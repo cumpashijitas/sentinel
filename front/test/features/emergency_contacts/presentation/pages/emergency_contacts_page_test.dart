@@ -192,7 +192,9 @@ void main() {
       await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Guardar'));
+      final saveButton = find.widgetWithText(ElevatedButton, 'Guardar');
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
       expect(find.text('Ingresa el nombre.'), findsOneWidget);

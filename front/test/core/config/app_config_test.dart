@@ -7,6 +7,7 @@ void main() {
     test('isProduction is true only for the prod environment', () {
       const prod = AppConfig(
         apiBaseUrl: 'https://api.example.com',
+        webBaseUrl: 'https://sentinel.example.com',
         environmentName: 'prod',
         mapTilesUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         mapTileProvider: 'OpenStreetMap',
@@ -15,6 +16,7 @@ void main() {
       );
       const dev = AppConfig(
         apiBaseUrl: 'http://localhost:3000',
+        webBaseUrl: 'http://localhost:8080',
         environmentName: 'dev',
         mapTilesUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         mapTileProvider: 'OpenStreetMap',

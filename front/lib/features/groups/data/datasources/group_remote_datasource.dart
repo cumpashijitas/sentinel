@@ -28,10 +28,32 @@ abstract interface class GroupRemoteDataSource {
     String? description,
   });
 
+  Future<Map<String, dynamic>> updateGroup({
+    required String groupId,
+    required String name,
+    String? description,
+  });
+
   /// Returns the joined group's id.
   Future<String> joinGroupByCode(String inviteCode);
 
   Future<void> leaveGroup(String groupId);
+
+  Future<Map<String, dynamic>> setMemberRole({
+    required String groupId,
+    required String targetUserId,
+    required String role,
+  });
+
+  Future<void> removeMember({
+    required String groupId,
+    required String targetUserId,
+  });
+
+  Future<Map<String, dynamic>> setPinnedNote({
+    required String groupId,
+    String? note,
+  });
 }
 
 class HttpGroupRemoteDataSource implements GroupRemoteDataSource {
@@ -77,6 +99,19 @@ class HttpGroupRemoteDataSource implements GroupRemoteDataSource {
   }
 
   @override
+  Future<Map<String, dynamic>> updateGroup({
+    required String groupId,
+    required String name,
+    String? description,
+  }) async {
+    final response = await _api.patch(
+      '/groups/$groupId',
+      body: {'name': name, 'description': description},
+    );
+    return response as Map<String, dynamic>;
+  }
+
+  @override
   Future<String> joinGroupByCode(String inviteCode) async {
     final response = await _api.post(
       '/groups/join',
@@ -88,5 +123,38 @@ class HttpGroupRemoteDataSource implements GroupRemoteDataSource {
   @override
   Future<void> leaveGroup(String groupId) async {
     await _api.post('/groups/$groupId/leave');
+  }
+
+  @override
+  Future<Map<String, dynamic>> setMemberRole({
+    required String groupId,
+    required String targetUserId,
+    required String role,
+  }) async {
+    final response = await _api.patch(
+      '/groups/$groupId/members/$targetUserId/role',
+      body: {'role': role},
+    );
+    return response as Map<String, dynamic>;
+  }
+
+  @override
+  Future<void> removeMember({
+    required String groupId,
+    required String targetUserId,
+  }) async {
+    await _api.delete('/groups/$groupId/members/$targetUserId');
+  }
+
+  @override
+  Future<Map<String, dynamic>> setPinnedNote({
+    required String groupId,
+    String? note,
+  }) async {
+    final response = await _api.patch(
+      '/groups/$groupId/note',
+      body: {'note': note},
+    );
+    return response as Map<String, dynamic>;
   }
 }

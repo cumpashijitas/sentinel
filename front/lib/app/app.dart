@@ -24,8 +24,13 @@ class SentinelApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Sentinel',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
+      // Modo Oscuro Táctico — la única variante del sistema de diseño
+      // (ver app_theme.dart). Forzado explícito, no dependiente del tema
+      // del sistema operativo: la app siempre se ve igual sin importar la
+      // preferencia del dispositivo.
+      theme: AppTheme.dark,
       darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
       routerConfig: router,
     );
   }

@@ -17,7 +17,10 @@ import { groupRoutes } from './routes/groups.routes.js';
 import { rideRoutes } from './routes/rides.routes.js';
 import { accidentRoutes } from './routes/accidents.routes.js';
 import { pushTokenRoutes } from './routes/push-tokens.routes.js';
+import { emergencyShareRoutes } from './routes/emergency-shares.routes.js';
+import { publicRoutes } from './routes/public.routes.js';
 import { attachLocationHub } from './ws/location-hub.js';
+import { attachEmergencyShareHub } from './ws/emergency-share-hub.js';
 
 const app = express();
 
@@ -49,6 +52,10 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 // credencial de Supabase, ver docs/architecture.md.
 app.use(authRoutes);
 
+// Sin auth (a propósito): es el link que un rider comparte por WhatsApp/
+// SMS — cualquiera con el token entra, sin cuenta. Ver public.routes.ts.
+app.use(publicRoutes);
+
 // Todo lo demás requiere un JWT válido de Supabase Auth — ver
 // middleware/auth.ts.
 app.use(requireAuth);
@@ -59,6 +66,7 @@ app.use(groupRoutes);
 app.use(rideRoutes);
 app.use(accidentRoutes);
 app.use(pushTokenRoutes);
+app.use(emergencyShareRoutes);
 
 app.use(errorHandler);
 
@@ -72,6 +80,7 @@ app.use(errorHandler);
 // http.Server explícitamente y pasárselo al hub es lo que faltaba.
 const server = createServer(app);
 attachLocationHub(server);
+attachEmergencyShareHub(server);
 
 const port = Number(process.env.PORT ?? 3000);
 server.listen(port, () => {

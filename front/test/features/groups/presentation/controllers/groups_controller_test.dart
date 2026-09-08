@@ -76,6 +76,23 @@ class _FakeGroupRepository implements GroupRepository {
   }
 
   @override
+  Future<RideGroup> updateGroup({
+    required String groupId,
+    required String name,
+    String? description,
+  }) async {
+    final error = errorToThrow;
+    if (error != null) throw error;
+    final updated = groups
+        .firstWhere((g) => g.id == groupId)
+        .copyWith(name: name, description: description);
+    groups = [
+      for (final g in groups) if (g.id == groupId) updated else g,
+    ];
+    return updated;
+  }
+
+  @override
   Future<String> joinGroupByCode(String inviteCode) async {
     final error = errorToThrow;
     if (error != null) throw error;
@@ -89,6 +106,23 @@ class _FakeGroupRepository implements GroupRepository {
     lastLeftGroupId = groupId;
     groups = groups.where((g) => g.id != groupId).toList();
   }
+
+  @override
+  Future<void> setMemberRole({
+    required String groupId,
+    required String targetUserId,
+    required GroupMemberRole role,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> removeMember({
+    required String groupId,
+    required String targetUserId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<RideGroup> setPinnedNote({required String groupId, String? note}) =>
+      throw UnimplementedError();
 }
 
 void main() {

@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../app/app_drawer.dart';
-import '../../../../app/hub_navigation.dart';
+import '../../../../app/hub_scaffold.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/responsive_content.dart';
 import '../../domain/entities/vehicle.dart';
 import '../controllers/vehicles_controller.dart';
 
-/// On narrow layouts, [AppDrawer] on this page's `Scaffold` replaces the
-/// back arrow — see that class's doc comment.
 class VehiclesPage extends ConsumerWidget {
   const VehiclesPage({super.key});
 
@@ -27,20 +26,37 @@ class VehiclesPage extends ConsumerWidget {
 
     final vehiclesAsync = ref.watch(vehiclesProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Vehículos')),
-      drawer: showsHubRail(context) ? null : const AppDrawer(),
+    return HubScaffold(
+      title: 'Vehículos',
+      icon: Icons.two_wheeler_rounded,
+      subtitle: 'Las motos con las que salís a rodar',
       body: ResponsiveContent(
         child: switch (vehiclesAsync) {
-          AsyncData(:final value) =>
-            value.isEmpty
-                ? const _EmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: value.length,
-                    itemBuilder: (context, index) =>
-                        _VehicleTile(vehicle: value[index]),
+          AsyncData(:final value) => value.isEmpty
+              ? EmptyState(
+                  icon: Icons.two_wheeler_outlined,
+                  message: 'Todavía no agregaste ningún vehículo.',
+                  actionLabel: 'Agregar vehículo',
+                  onAction: () => showVehicleFormSheet(context),
+                )
+              : GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.xxxl,
                   ),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: AppSpacing.md,
+                        crossAxisSpacing: AppSpacing.md,
+                        childAspectRatio: 0.92,
+                      ),
+                  itemCount: value.length,
+                  itemBuilder: (context, index) =>
+                      _VehicleTile(vehicle: value[index]),
+                ),
           AsyncError(:final error) => Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -59,35 +75,6 @@ class VehiclesPage extends ConsumerWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.two_wheeler_outlined,
-              size: 48,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Todavía no agregaste ningún vehículo.',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _VehicleTile extends ConsumerWidget {
   const _VehicleTile({required this.vehicle});
 
@@ -95,27 +82,87 @@ class _VehicleTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
     final subtitleParts = [
       if (vehicle.year != null) '${vehicle.year}',
       if (vehicle.color != null) vehicle.color!,
       if (vehicle.plate != null) vehicle.plate!,
     ];
 
-    return ListTile(
-      leading: const CircleAvatar(child: Icon(Icons.two_wheeler_outlined)),
-      title: Text('${vehicle.brand} ${vehicle.model}'),
-      subtitle: subtitleParts.isEmpty ? null : Text(subtitleParts.join(' · ')),
-      trailing: PopupMenuButton<_VehicleAction>(
-        onSelected: (action) => switch (action) {
-          _VehicleAction.edit => showVehicleFormSheet(
-            context,
-            vehicle: vehicle,
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                height: 64,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                ),
+                color: colorScheme.secondaryContainer,
+                child: Icon(
+                  Icons.two_wheeler_rounded,
+                  color: colorScheme.onSecondaryContainer,
+                  size: 30,
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '${vehicle.brand} ${vehicle.model}',
+                        style: Theme.of(context).textTheme.titleSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (subtitleParts.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitleParts.join(' · '),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          _VehicleAction.delete => _confirmDelete(context, ref, vehicle),
-        },
-        itemBuilder: (context) => const [
-          PopupMenuItem(value: _VehicleAction.edit, child: Text('Editar')),
-          PopupMenuItem(value: _VehicleAction.delete, child: Text('Eliminar')),
+          Positioned(
+            top: AppSpacing.xs,
+            right: AppSpacing.xs,
+            child: PopupMenuButton<_VehicleAction>(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              onSelected: (action) => switch (action) {
+                _VehicleAction.edit => showVehicleFormSheet(
+                  context,
+                  vehicle: vehicle,
+                ),
+                _VehicleAction.delete => _confirmDelete(context, ref, vehicle),
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: _VehicleAction.edit,
+                  child: Text('Editar'),
+                ),
+                PopupMenuItem(
+                  value: _VehicleAction.delete,
+                  child: Text('Eliminar'),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

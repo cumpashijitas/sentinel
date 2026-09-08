@@ -110,7 +110,9 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.widgetWithText(TextFormField, 'Nombre'), '');
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Guardar'));
+      final saveButton = find.widgetWithText(ElevatedButton, 'Guardar');
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
       expect(find.text('Ingresa tu nombre.'), findsOneWidget);
@@ -125,7 +127,9 @@ void main() {
         find.widgetWithText(TextFormField, 'Nombre'),
         'Ana R.',
       );
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Guardar'));
+      final saveButton = find.widgetWithText(ElevatedButton, 'Guardar');
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
       expect(fakeProfileRepository.lastSavedDisplayName, 'Ana R.');
@@ -140,13 +144,15 @@ void main() {
       await pumpProfilePage(tester);
       await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.widgetWithText(
-          SwitchListTile,
-          'Alertas de accidente por WhatsApp',
-        ),
+      final switchTile = find.widgetWithText(
+        SwitchListTile,
+        'Alertas de accidente por WhatsApp',
       );
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Guardar'));
+      await tester.ensureVisible(switchTile);
+      await tester.tap(switchTile);
+      final saveButton = find.widgetWithText(ElevatedButton, 'Guardar');
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
       expect(fakeProfileRepository.lastSavedWhatsappAlertsOptIn, isTrue);

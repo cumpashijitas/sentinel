@@ -30,15 +30,25 @@ class MainActivity : FlutterActivity() {
                             result.error("INVALID_ARGUMENT", "sessionId is required", null)
                             return@setMethodCallHandler
                         }
-                        if (!hasBackgroundLocationPermission()) {
+                        if (!hasForegroundLocationPermission()) {
                             // Defensive: the Dart side
                             // (AndroidBackgroundLocationService.start) already checks
                             // this via geolocator before ever reaching this channel —
                             // this is a second, independent check in case that's ever
                             // bypassed, not the primary permission-request UX.
+                            //
+                            // Real bug fixed here: this used to require
+                            // ACCESS_BACKGROUND_LOCATION, which Android does NOT ask
+                            // for a foreground service with a visible notification —
+                            // RideBackgroundService calls startForeground() with
+                            // FOREGROUND_SERVICE_TYPE_LOCATION immediately, which is
+                            // exactly the exemption Android's docs describe. Requiring
+                            // the "Allow all the time" grant on top of that meant
+                            // start() failed for every real user, since that grant
+                            // isn't offered in the standard permission dialog at all.
                             result.error(
                                 "PERMISSION_DENIED",
-                                "ACCESS_BACKGROUND_LOCATION not granted",
+                                "ACCESS_FINE_LOCATION not granted",
                                 null,
                             )
                             return@setMethodCallHandler
@@ -61,14 +71,14 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun hasBackgroundLocationPermission(): Boolean {
-        // ACCESS_BACKGROUND_LOCATION only exists as a distinct runtime
-        // permission from API 29 onward — on older versions, holding fine
-        // location is already enough for background access.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true
+    private fun hasForegroundLocationPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             this,
-            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
-        ) == PackageManager.PERMISSION_GRANTED
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
     }
 }

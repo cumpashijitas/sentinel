@@ -66,12 +66,60 @@ class GroupRepositoryImpl implements GroupRepository {
       });
 
   @override
+  Future<RideGroup> updateGroup({
+    required String groupId,
+    required String name,
+    String? description,
+  }) => _guard(() async {
+    final row = await _remoteDataSource.updateGroup(
+      groupId: groupId,
+      name: name,
+      description: description,
+    );
+    return RideGroup.fromJson(row);
+  });
+
+  @override
   Future<String> joinGroupByCode(String inviteCode) =>
       _guard(() => _remoteDataSource.joinGroupByCode(inviteCode));
 
   @override
   Future<void> leaveGroup(String groupId) =>
       _guard(() => _remoteDataSource.leaveGroup(groupId));
+
+  @override
+  Future<void> setMemberRole({
+    required String groupId,
+    required String targetUserId,
+    required GroupMemberRole role,
+  }) => _guard(
+    () => _remoteDataSource.setMemberRole(
+      groupId: groupId,
+      targetUserId: targetUserId,
+      role: role.name,
+    ),
+  );
+
+  @override
+  Future<void> removeMember({
+    required String groupId,
+    required String targetUserId,
+  }) => _guard(
+    () => _remoteDataSource.removeMember(
+      groupId: groupId,
+      targetUserId: targetUserId,
+    ),
+  );
+
+  @override
+  Future<RideGroup> setPinnedNote({required String groupId, String? note}) =>
+      _guard(() async {
+        final row = await _remoteDataSource.setPinnedNote(
+          groupId: groupId,
+          note: note,
+        );
+        return RideGroup.fromJson(row);
+      });
 
   Future<T> _guard<T>(Future<T> Function() action) async {
     try {
@@ -103,8 +151,24 @@ class GroupRepositoryImpl implements GroupRepository {
         return 'Este grupo ya no acepta nuevos integrantes.';
       case 'you are not an active member of this group':
         return 'No eres integrante activo de este grupo.';
+      case 'only the owner or an admin can edit this group':
+        return 'Solo el propietario o un admin pueden editar este grupo.';
       case 'the group owner cannot leave; transfer ownership or archive the group first':
         return 'El propietario no puede abandonar el grupo. Transfiere la propiedad o archívalo primero.';
+      case 'only the group owner can assign admins':
+        return 'Solo el propietario del grupo puede asignar administradores.';
+      case "the owner's role cannot be changed":
+        return 'El rol del propietario no se puede cambiar.';
+      case 'only the owner or an admin can remove members':
+        return 'Solo el propietario o un admin pueden expulsar integrantes.';
+      case 'use leave instead of removing yourself':
+        return 'Para salir del grupo usa "Salir del grupo", no esta opción.';
+      case 'the group owner cannot be removed':
+        return 'El propietario no puede ser expulsado del grupo.';
+      case 'that user is not an active member of this group':
+        return 'Esa persona ya no es integrante activo de este grupo.';
+      case 'only the owner or an admin can set the group note':
+        return 'Solo el propietario o un admin pueden fijar el aviso del grupo.';
     }
 
     switch (error.statusCode) {

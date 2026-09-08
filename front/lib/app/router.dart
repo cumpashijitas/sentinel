@@ -4,11 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../core/platform/platform_capabilities.dart';
 import '../features/auth/presentation/controllers/auth_controller.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/register_page.dart';
 import '../features/emergency_contacts/presentation/pages/emergency_contacts_page.dart';
+import '../features/emergency_shares/presentation/pages/emergency_share_page.dart';
+import '../features/emergency_shares/presentation/pages/public_share_page.dart';
 import '../features/groups/presentation/pages/group_detail_page.dart';
 import '../features/groups/presentation/pages/groups_page.dart';
 import '../features/history/presentation/pages/accident_detail_page.dart';
@@ -18,7 +19,7 @@ import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/rides/presentation/pages/ride_map_page.dart';
 import '../features/rides/presentation/pages/ride_session_page.dart';
 import '../features/vehicles/presentation/pages/vehicles_page.dart';
-import 'adaptive_shell.dart';
+import 'app_shell.dart';
 
 part 'router.g.dart';
 
@@ -33,14 +34,22 @@ abstract final class AppRoutes {
   static const rideDetail = '/rides/:id';
   static const rideMap = '/rides/:id/map';
   static const emergencyContacts = '/emergency-contacts';
+  static const emergencyShare = '/emergency-share';
   static const vehicles = '/vehicles';
   static const history = '/history';
   static const accidentDetail = '/accidents/:id';
+
+  /// El link público que un rider comparte por WhatsApp/SMS — **sin
+  /// login**, ver el `redirect` de abajo. No lleva `AppRoutes.` en el
+  /// nombre de campo a propósito, para que grep encuentre fácil todo lo
+  /// que necesita tratarse como público si algún día se agrega otro.
+  static const publicShare = '/share/:token';
 
   static String groupDetailPath(String id) => '/groups/$id';
   static String rideDetailPath(String id) => '/rides/$id';
   static String rideMapPath(String id) => '/rides/$id/map';
   static String accidentDetailPath(String id) => '/accidents/$id';
+  static String publicSharePath(String token) => '/share/$token';
 }
 
 /// Bridges a `Stream` to go_router's `Listenable`-based `refreshListenable`,
@@ -103,8 +112,11 @@ GoRouter goRouter(Ref ref) {
       final isAuthRoute =
           state.matchedLocation == AppRoutes.login ||
           state.matchedLocation == AppRoutes.register;
+      // El link público (`/share/<token>`) es precisamente para alguien
+      // sin cuenta — nunca lo mandes a /login, ver AppRoutes.publicShare.
+      final isPublicRoute = state.matchedLocation.startsWith('/share/');
 
-      if (!isLoggedIn && !isAuthRoute) return AppRoutes.login;
+      if (!isLoggedIn && !isAuthRoute && !isPublicRoute) return AppRoutes.login;
       if (isLoggedIn && isAuthRoute) return AppRoutes.home;
       return null;
     },
@@ -117,19 +129,28 @@ GoRouter goRouter(Ref ref) {
         path: AppRoutes.register,
         builder: (context, state) => const RegisterPage(),
       ),
-      // Web only: everywhere else (Android, and `flutter test`'s default
-      // platform — see docs/architecture.md) gets the hub routes exactly
-      // as they've always been, no shell, no behavior change at all.
-      if (PlatformCapabilities.isWeb)
-        ShellRoute(
-          builder: (context, state, child) => AdaptiveShell(child: child),
-          routes: hubRoutes,
-        )
-      else
-        ...hubRoutes,
+      // AppShell adapts by width (NavigationBar vs NavigationRail), not by
+      // platform — every platform gets the same shell now (UI/UX redesign
+      // pass; previously Android skipped this entirely in favor of
+      // AppDrawer, now retired in favor of one tab bar everywhere).
+      ShellRoute(
+        builder: (context, state, child) => AppShell(child: child),
+        routes: hubRoutes,
+      ),
       GoRoute(
         path: AppRoutes.profile,
         builder: (context, state) => const ProfilePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.emergencyShare,
+        builder: (context, state) => const EmergencySharePage(),
+      ),
+      // Público — sin login, ver el `redirect` de arriba. Nunca dentro del
+      // ShellRoute/AdaptiveShell: no está en `hubRoutes`.
+      GoRoute(
+        path: AppRoutes.publicShare,
+        builder: (context, state) =>
+            PublicSharePage(token: state.pathParameters['token']!),
       ),
       GoRoute(
         path: AppRoutes.groupDetail,

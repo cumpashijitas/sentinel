@@ -8,6 +8,7 @@
 // intento silenciosamente.
 
 import { parseServiceAccount, sendFcmPush } from './fcm.js';
+import type { WhatsAppTemplateParam } from './message.js';
 import { sendWhatsAppTemplate } from './whatsapp.js';
 
 export interface SendResult {
@@ -25,9 +26,12 @@ export interface SmsProvider {
 }
 
 export interface WhatsAppProvider {
-  /** `templateParams` must match message.ts's buildWhatsAppTemplateParams
-   * order exactly — see whatsapp.ts's header comment. */
-  send(phoneNumber: string, templateParams: readonly string[]): Promise<SendResult>;
+  /** `templateParams` must carry the same `name`s as the approved
+   * template's variables — see whatsapp.ts's header comment. */
+  send(
+    phoneNumber: string,
+    templateParams: readonly WhatsAppTemplateParam[],
+  ): Promise<SendResult>;
 }
 
 class NoopPushProvider implements PushProvider {
@@ -104,7 +108,10 @@ class MetaWhatsAppProvider implements WhatsAppProvider {
     private templateLanguage: string,
   ) {}
 
-  send(phoneNumber: string, templateParams: readonly string[]): Promise<SendResult> {
+  send(
+    phoneNumber: string,
+    templateParams: readonly WhatsAppTemplateParam[],
+  ): Promise<SendResult> {
     return sendWhatsAppTemplate(
       this.accessToken,
       this.phoneNumberId,

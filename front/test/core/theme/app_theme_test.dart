@@ -2,83 +2,82 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sentinel_v2/core/theme/app_theme.dart';
 
-double _lightnessOf(Color color) => HSLColor.fromColor(color).lightness;
-double _hueOf(Color color) => HSLColor.fromColor(color).hue;
-
 void main() {
   group('AppTheme', () {
-    test('light theme is Brightness.light, dark theme is Brightness.dark', () {
-      expect(AppTheme.light.brightness, Brightness.light);
+    test('is a single fixed dark theme — Modo Oscuro Táctico', () {
       expect(AppTheme.dark.brightness, Brightness.dark);
+      // No existe una variante clara del sistema — `light` apunta al
+      // mismo tema táctico (ver app.dart: `themeMode: ThemeMode.dark`).
+      expect(AppTheme.light.brightness, Brightness.dark);
+    });
+
+    test('the scaffold background is the exact carbon spec color', () {
+      expect(AppTheme.dark.scaffoldBackgroundColor, AppTheme.carbon);
+      expect(AppTheme.carbon, const Color(0xFF121418));
+    });
+
+    test('cards sit on the panel color with a 1px technical border', () {
+      final cardTheme = AppTheme.dark.cardTheme;
+      expect(cardTheme.color, AppTheme.panel);
+      expect(AppTheme.panel, const Color(0xFF1A1D24));
+      expect(cardTheme.elevation, 0);
+
+      final shape = cardTheme.shape as RoundedRectangleBorder?;
+      expect(shape?.side.color, AppTheme.border);
+      expect(shape?.side.width, 1);
+      expect(AppTheme.border, const Color(0xFF2C323D));
+    });
+
+    test('card corners stay within the 6-8px spec range', () {
+      final shape = AppTheme.dark.cardTheme.shape as RoundedRectangleBorder?;
+      final radius = (shape?.borderRadius as BorderRadius?)?.topLeft.x;
+      expect(radius, isNotNull);
+      expect(radius, inInclusiveRange(6.0, 8.0));
     });
 
     test(
-      'light surface is softened below Material 3\'s near-white default',
+      'the accent color drives primary buttons and nothing but active/CTA '
+      'elements',
       () {
-        final lightness = _lightnessOf(AppTheme.light.colorScheme.surface);
-        // Plain ColorScheme.fromSeed puts this at ~0.99; still clearly a
-        // light theme, just not paper-white.
-        expect(lightness, lessThan(0.95));
-        expect(lightness, greaterThan(0.80));
+        final colorScheme = AppTheme.dark.colorScheme;
+        expect(colorScheme.primary, AppTheme.accent);
+        expect(AppTheme.accent, const Color(0xFFFF5722));
+
+        final elevatedStyle = AppTheme.dark.elevatedButtonTheme.style;
+        expect(
+          elevatedStyle?.backgroundColor?.resolve({}),
+          AppTheme.accent,
+        );
       },
     );
 
-    test('dark surface is softened above Material 3\'s near-black default', () {
-      final lightness = _lightnessOf(AppTheme.dark.colorScheme.surface);
-      // Plain ColorScheme.fromSeed puts this at ~0.08; still clearly a
-      // dark theme, just not near-black.
-      expect(lightness, greaterThan(0.12));
-      expect(lightness, lessThan(0.30));
+    test('S.O.S. red is isolated from every other role in the scheme', () {
+      final colorScheme = AppTheme.dark.colorScheme;
+      expect(colorScheme.error, AppTheme.sos);
+      expect(AppTheme.sos, const Color(0xFFD32F2F));
+      // El rojo de emergencia nunca debe coincidir con el acento naranja
+      // de uso general — si algún día colisionan, el aislamiento visual
+      // del panel S.O.S. deja de significar algo.
+      expect(AppTheme.sos, isNot(AppTheme.accent));
     });
 
-    test('the surface tonal hierarchy stays ordered after softening', () {
-      final light = AppTheme.light.colorScheme;
-      expect(
-        _lightnessOf(light.surfaceContainerLowest),
-        greaterThan(_lightnessOf(light.surfaceContainerLow)),
-      );
-      expect(
-        _lightnessOf(light.surfaceContainerLow),
-        greaterThan(_lightnessOf(light.surfaceContainer)),
-      );
-      expect(
-        _lightnessOf(light.surfaceContainer),
-        greaterThan(_lightnessOf(light.surfaceContainerHigh)),
-      );
-      expect(
-        _lightnessOf(light.surfaceContainerHigh),
-        greaterThan(_lightnessOf(light.surfaceContainerHighest)),
-      );
-
-      final dark = AppTheme.dark.colorScheme;
-      expect(
-        _lightnessOf(dark.surfaceContainerLowest),
-        lessThan(_lightnessOf(dark.surfaceContainerLow)),
-      );
-      expect(
-        _lightnessOf(dark.surfaceContainerLow),
-        lessThan(_lightnessOf(dark.surfaceContainer)),
-      );
-      expect(
-        _lightnessOf(dark.surfaceContainer),
-        lessThan(_lightnessOf(dark.surfaceContainerHigh)),
-      );
-      expect(
-        _lightnessOf(dark.surfaceContainerHigh),
-        lessThan(_lightnessOf(dark.surfaceContainerHighest)),
-      );
+    test('secondary text is the exact soft-white spec color', () {
+      expect(AppTheme.dark.colorScheme.onSurfaceVariant, AppTheme.textSecondary);
+      expect(AppTheme.textSecondary, const Color(0xFFE2E8F0));
     });
 
-    test('the primary color stays blue in both themes (seed untouched)', () {
-      // Surface softening must never touch primary/secondary/tertiary —
-      // only `ColorScheme.fromSeed`'s own hue for the 0x1B6FD1 seed
-      // decides this, unrelated to the softening delta.
-      for (final hue in [
-        _hueOf(AppTheme.light.colorScheme.primary),
-        _hueOf(AppTheme.dark.colorScheme.primary),
-      ]) {
-        expect(hue, inInclusiveRange(200, 250));
-      }
+    test('body/title text sizes stay within the spec scale (14/16/20-24)', () {
+      final textTheme = AppTheme.dark.textTheme;
+      expect(textTheme.bodyMedium?.fontSize, 14); // texto secundario
+      expect(textTheme.bodyLarge?.fontSize, 16); // texto base
+      expect(textTheme.titleLarge?.fontSize, 20); // título de sección
+      expect(textTheme.headlineSmall?.fontSize, lessThanOrEqualTo(24));
+    });
+
+    test('telemetryStyle renders in a monospaced family with tabular figures', () {
+      final style = AppTheme.telemetryStyle(color: Colors.white);
+      expect(style.fontFamily, 'monospace');
+      expect(style.fontFeatures, contains(const FontFeature.tabularFigures()));
     });
   });
 }

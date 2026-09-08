@@ -7,7 +7,9 @@
   "scripts": {
     "install:all": "npm --prefix back install && cd front && flutter pub get",
     "dev": "concurrently -k -n back,web \"npm --prefix back run dev\" \"cd front && flutter run -d chrome\"",
-    "build:apk": "cd front && flutter build apk --release"
+    "dev:android": "node scripts/set-lan-ip.js && concurrently -k -n back,app \"npm --prefix back run dev\" \"cd front && flutter run -d android\"",
+    "set-ip": "node scripts/set-lan-ip.js",
+    "build:apk": "node scripts/set-lan-ip.js && cd front && flutter build apk --release"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

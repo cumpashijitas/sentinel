@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/section_header.dart';
+import '../../../../shared/widgets/status_chip.dart';
 import '../../../accidents/domain/entities/accident_event.dart';
 import '../controllers/history_controller.dart';
 
@@ -24,20 +28,30 @@ class AccidentDetailPage extends ConsumerWidget {
     final eventAsync = ref.watch(accidentDetailProvider(accidentId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Accidente')),
-      body: switch (eventAsync) {
-        AsyncData(:final value) => _AccidentDetailBody(
-          event: value,
-          dateFormat: _dateFormat,
-        ),
-        AsyncError(:final error) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(error.toString(), textAlign: TextAlign.center),
+      body: Column(
+        children: [
+          const SectionHeader(
+            icon: Icons.warning_amber_rounded,
+            accentColor: AppTheme.sos,
+            title: 'Accidente',
           ),
-        ),
-        _ => const Center(child: CircularProgressIndicator()),
-      },
+          Expanded(
+            child: switch (eventAsync) {
+              AsyncData(:final value) => _AccidentDetailBody(
+                event: value,
+                dateFormat: _dateFormat,
+              ),
+              AsyncError(:final error) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(error.toString(), textAlign: TextAlign.center),
+                ),
+              ),
+              _ => const Center(child: CircularProgressIndicator()),
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -52,35 +66,28 @@ class _AccidentDetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasLocation = event.latitude != null && event.longitude != null;
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.warning_amber_outlined,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _statusLabel(event.status),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
+                StatusChip(
+                  label: _statusLabel(event.status),
+                  color: colorScheme.error,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.md),
                 Text(dateFormat.format(event.occurredAt.toLocal())),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         _DetailTile(
           icon: Icons.speed_outlined,
           label: 'Impacto registrado',
@@ -113,7 +120,7 @@ class _AccidentDetailBody extends StatelessWidget {
                 '${event.longitude!.toStringAsFixed(5)}',
           ),
         if (event.sessionId != null) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           OutlinedButton.icon(
             onPressed: () => context.push('/rides/${event.sessionId}'),
             icon: const Icon(Icons.pedal_bike_outlined),
@@ -146,10 +153,13 @@ class _DetailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-      title: Text(label),
-      trailing: Text(value, style: Theme.of(context).textTheme.titleMedium),
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: ListTile(
+        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        title: Text(label),
+        trailing: Text(value, style: Theme.of(context).textTheme.titleMedium),
+      ),
     );
   }
 }

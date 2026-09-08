@@ -21,6 +21,7 @@ abstract class RideGroup with _$RideGroup {
     required RideGroupStatus status,
     required DateTime createdAt,
     required DateTime updatedAt,
+    String? pinnedNote,
   }) = _RideGroup;
 
   factory RideGroup.fromJson(Map<String, dynamic> json) =>

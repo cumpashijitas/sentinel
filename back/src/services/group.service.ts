@@ -127,6 +127,133 @@ export async function joinGroupByCode(userId: string, inviteCode: string) {
   });
 }
 
+export async function updateGroup(
+  userId: string,
+  groupId: string,
+  name: string,
+  description: string | null,
+) {
+  if (name.trim() === '') {
+    throw new HttpError(400, 'group name is required');
+  }
+  if (!(await isGroupAdmin(groupId, userId))) {
+    throw new HttpError(403, 'only the owner or an admin can edit this group');
+  }
+
+  const { rows } = await pool.query(
+    `update public.ride_groups
+        set name = $1, description = $2
+      where id = $3
+      returning *`,
+    [name, description, groupId],
+  );
+  if (rows.length === 0) throw new HttpError(404, 'group not found');
+  return rows[0];
+}
+
+/** Solo el dueño puede asignar/quitar admin — es una decisión de
+ * confianza distinta a "editar el nombre del grupo" (que ya permite
+ * admin), así que se valida contra `owner_id` directo, no
+ * `isGroupAdmin`. No permite tocar el rol del propio dueño (no tiene
+ * sentido: su rol siempre es 'owner', ver `leaveGroup`/transferencia de
+ * propiedad, todavía sin implementar). */
+export async function setMemberRole(
+  actingUserId: string,
+  groupId: string,
+  targetUserId: string,
+  role: 'admin' | 'member',
+) {
+  const { rows: groupRows } = await pool.query(
+    'select owner_id from public.ride_groups where id = $1',
+    [groupId],
+  );
+  const group = groupRows[0];
+  if (!group) throw new HttpError(404, 'group not found');
+  if (group.owner_id !== actingUserId) {
+    throw new HttpError(403, 'only the group owner can assign admins');
+  }
+  if (targetUserId === group.owner_id) {
+    throw new HttpError(400, "the owner's role cannot be changed");
+  }
+
+  const { rows } = await pool.query(
+    `update public.ride_group_members
+        set role = $1
+      where group_id = $2 and user_id = $3 and status = 'active'
+      returning *`,
+    [role, groupId, targetUserId],
+  );
+  if (rows.length === 0) {
+    throw new HttpError(404, 'that user is not an active member of this group');
+  }
+  return rows[0];
+}
+
+/** Expulsar a un miembro — misma mecánica que `leaveGroup` (soft, vía
+ * `status`) pero iniciada por un admin contra otro usuario, y con
+ * `status = 'removed'` en vez de `'left'` para que quede claro en
+ * `ride_group_members` quién se fue por su cuenta y a quién sacaron. El
+ * dueño no puede ser expulsado por nadie (ni siquiera por otro admin) —
+ * misma regla que ya impide que el dueño se vaya solo. */
+export async function removeMember(
+  actingUserId: string,
+  groupId: string,
+  targetUserId: string,
+) {
+  if (!(await isGroupAdmin(groupId, actingUserId))) {
+    throw new HttpError(403, 'only the owner or an admin can remove members');
+  }
+  if (targetUserId === actingUserId) {
+    throw new HttpError(400, 'use leave instead of removing yourself');
+  }
+
+  const { rows: groupRows } = await pool.query(
+    'select owner_id from public.ride_groups where id = $1',
+    [groupId],
+  );
+  const group = groupRows[0];
+  if (!group) throw new HttpError(404, 'group not found');
+  if (targetUserId === group.owner_id) {
+    throw new HttpError(400, 'the group owner cannot be removed');
+  }
+
+  const { rows } = await pool.query(
+    `update public.ride_group_members
+        set status = 'removed', left_at = now()
+      where group_id = $1 and user_id = $2 and status = 'active'
+      returning *`,
+    [groupId, targetUserId],
+  );
+  if (rows.length === 0) {
+    throw new HttpError(404, 'that user is not an active member of this group');
+  }
+}
+
+/** Aviso fijado del grupo — un solo texto por grupo (no un feed de
+ * múltiples notas: eso es una feature bastante más grande, con su propia
+ * tabla/paginación/quién-lo-escribió; esto cubre el caso real pedido
+ * ("avisale algo a todo el grupo") con el cambio de esquema más chico
+ * posible). Cualquier admin puede editarlo/borrarlo (`note = null`),
+ * igual que puede editar nombre/descripción. */
+export async function setPinnedNote(
+  userId: string,
+  groupId: string,
+  note: string | null,
+) {
+  if (!(await isGroupAdmin(groupId, userId))) {
+    throw new HttpError(403, 'only the owner or an admin can set the group note');
+  }
+  const { rows } = await pool.query(
+    `update public.ride_groups
+        set pinned_note = $1
+      where id = $2
+      returning *`,
+    [note, groupId],
+  );
+  if (rows.length === 0) throw new HttpError(404, 'group not found');
+  return rows[0];
+}
+
 export async function leaveGroup(userId: string, groupId: string) {
   const { rows } = await pool.query(
     `select role from public.ride_group_members

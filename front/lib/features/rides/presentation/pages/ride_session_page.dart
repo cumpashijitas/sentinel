@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/section_header.dart';
+import '../../../../shared/widgets/status_chip.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../groups/domain/entities/group_member.dart';
 import '../../../groups/presentation/controllers/groups_controller.dart';
@@ -34,28 +37,35 @@ class RideSessionPage extends ConsumerWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: sessionAsync.when(
-          data: (session) => Text(session.name ?? 'Viaje'),
-          loading: () => const Text('Viaje'),
-          error: (_, _) => const Text('Viaje'),
-        ),
-      ),
-      body: sessionAsync.when(
-        data: (session) => _RideSessionBody(
-          session: session,
-          participantsAsync: participantsAsync,
-          currentUserId: currentUserId,
-          isFinishing: isFinishing,
-          onFinish: () => _confirmFinish(context, ref, session),
-        ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(error.toString(), textAlign: TextAlign.center),
+      body: Column(
+        children: [
+          SectionHeader(
+            icon: Icons.pedal_bike_rounded,
+            title: sessionAsync.when(
+              data: (session) => session.name ?? 'Viaje',
+              loading: () => 'Viaje',
+              error: (_, _) => 'Viaje',
+            ),
           ),
-        ),
+          Expanded(
+            child: sessionAsync.when(
+              data: (session) => _RideSessionBody(
+                session: session,
+                participantsAsync: participantsAsync,
+                currentUserId: currentUserId,
+                isFinishing: isFinishing,
+                onFinish: () => _confirmFinish(context, ref, session),
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stackTrace) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(error.toString(), textAlign: TextAlign.center),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -123,29 +133,36 @@ class _RideSessionBody extends ConsumerWidget {
         session.status == RideSessionStatus.waiting ||
         session.status == RideSessionStatus.active;
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.pedal_bike_outlined,
-                      color: Theme.of(context).colorScheme.primary,
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.pedal_bike_rounded,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _statusLabel(session.status),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    _statusChip(context, session.status),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.md),
                 Text(
                   'Iniciado: ${_timeFormat.format(session.startedAt.toLocal())}',
                 ),
@@ -157,9 +174,9 @@ class _RideSessionBody extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xl),
         Text('Participantes', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.sm),
         switch (participantsAsync) {
           AsyncData(:final value) =>
             value.isEmpty
@@ -169,20 +186,27 @@ class _RideSessionBody extends ConsumerWidget {
                   )
                 : Column(
                     children: value
-                        .map((p) => _ParticipantTile(participant: p))
+                        .map(
+                          (p) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.sm,
+                            ),
+                            child: _ParticipantTile(participant: p),
+                          ),
+                        )
                         .toList(),
                   ),
           AsyncError(:final error) => Text(error.toString()),
           _ => const Center(child: CircularProgressIndicator()),
         },
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         if (isActive)
           OutlinedButton.icon(
             onPressed: () => context.push('/rides/${session.id}/map'),
             icon: const Icon(Icons.map_outlined),
             label: const Text('Ver mapa'),
           ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.sm),
         if (isActive && isAdmin)
           FilledButton.icon(
             onPressed: isFinishing ? null : onFinish,
@@ -193,12 +217,16 @@ class _RideSessionBody extends ConsumerWidget {
     );
   }
 
-  static String _statusLabel(RideSessionStatus status) => switch (status) {
-    RideSessionStatus.waiting => 'Esperando para iniciar',
-    RideSessionStatus.active => 'En curso',
-    RideSessionStatus.finished => 'Finalizado',
-    RideSessionStatus.cancelled => 'Cancelado',
-  };
+  static Widget _statusChip(BuildContext context, RideSessionStatus status) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final (label, color) = switch (status) {
+      RideSessionStatus.waiting => ('Esperando para iniciar', colorScheme.secondary),
+      RideSessionStatus.active => ('En curso', colorScheme.tertiary),
+      RideSessionStatus.finished => ('Finalizado', colorScheme.primary),
+      RideSessionStatus.cancelled => ('Cancelado', colorScheme.outline),
+    };
+    return StatusChip(label: label, color: color);
+  }
 }
 
 class _ParticipantTile extends StatelessWidget {
@@ -208,20 +236,23 @@ class _ParticipantTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: participant.avatarUrl != null
-            ? NetworkImage(participant.avatarUrl!)
-            : null,
-        child: participant.avatarUrl == null
-            ? const Icon(Icons.person_outline)
-            : null,
-      ),
-      title: Text(participant.displayName),
-      trailing: Text(
-        participant.status == RideParticipantStatus.active
-            ? 'En viaje'
-            : 'Salió',
+    final colorScheme = Theme.of(context).colorScheme;
+    final isActive = participant.status == RideParticipantStatus.active;
+    return Card(
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundImage: participant.avatarUrl != null
+              ? NetworkImage(participant.avatarUrl!)
+              : null,
+          child: participant.avatarUrl == null
+              ? const Icon(Icons.person_outline)
+              : null,
+        ),
+        title: Text(participant.displayName),
+        trailing: StatusChip(
+          label: isActive ? 'En viaje' : 'Salió',
+          color: isActive ? colorScheme.tertiary : colorScheme.outline,
+        ),
       ),
     );
   }

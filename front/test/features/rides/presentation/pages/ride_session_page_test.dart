@@ -79,11 +79,35 @@ class _FakeGroupRepository implements GroupRepository {
       throw UnimplementedError();
 
   @override
+  Future<RideGroup> updateGroup({
+    required String groupId,
+    required String name,
+    String? description,
+  }) => throw UnimplementedError();
+
+  @override
   Future<String> joinGroupByCode(String inviteCode) =>
       throw UnimplementedError();
 
   @override
   Future<void> leaveGroup(String groupId) => throw UnimplementedError();
+
+  @override
+  Future<void> setMemberRole({
+    required String groupId,
+    required String targetUserId,
+    required GroupMemberRole role,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> removeMember({
+    required String groupId,
+    required String targetUserId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<RideGroup> setPinnedNote({required String groupId, String? note}) =>
+      throw UnimplementedError();
 }
 
 final _session = RideSession(
@@ -171,6 +195,8 @@ void main() {
     ) async {
       await pumpSessionPage(tester, asUser: 'u2');
 
+      // El título aparece tanto en el header (SectionHeader) como en el
+      // cuerpo de la pantalla.
       expect(find.text('Salida domingo'), findsWidgets);
       expect(find.text('En curso'), findsOneWidget);
       expect(find.text('Ana Rider'), findsOneWidget);

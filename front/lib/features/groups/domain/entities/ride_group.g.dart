@@ -15,6 +15,7 @@ _RideGroup _$RideGroupFromJson(Map<String, dynamic> json) => _RideGroup(
   status: $enumDecode(_$RideGroupStatusEnumMap, json['status']),
   createdAt: DateTime.parse(json['created_at'] as String),
   updatedAt: DateTime.parse(json['updated_at'] as String),
+  pinnedNote: json['pinned_note'] as String?,
 );
 
 Map<String, dynamic> _$RideGroupToJson(_RideGroup instance) =>
@@ -27,6 +28,7 @@ Map<String, dynamic> _$RideGroupToJson(_RideGroup instance) =>
       'status': _$RideGroupStatusEnumMap[instance.status]!,
       'created_at': instance.createdAt.toIso8601String(),
       'updated_at': instance.updatedAt.toIso8601String(),
+      'pinned_note': instance.pinnedNote,
     };
 
 const _$RideGroupStatusEnumMap = {

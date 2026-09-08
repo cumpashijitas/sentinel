@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../app/app_drawer.dart';
-import '../../../../app/hub_navigation.dart';
+import '../../../../app/hub_scaffold.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/responsive_content.dart';
 import '../../domain/entities/emergency_contact.dart';
 import '../controllers/emergency_contacts_controller.dart';
 
-/// On narrow layouts, [AppDrawer] on this page's `Scaffold` replaces the
-/// back arrow — see that class's doc comment.
 class EmergencyContactsPage extends ConsumerWidget {
   const EmergencyContactsPage({super.key});
 
@@ -27,20 +26,32 @@ class EmergencyContactsPage extends ConsumerWidget {
 
     final contactsAsync = ref.watch(emergencyContactsProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Contactos de emergencia')),
-      drawer: showsHubRail(context) ? null : const AppDrawer(),
+    return HubScaffold(
+      title: 'Contactos de emergencia',
+      icon: Icons.emergency_rounded,
+      subtitle: 'A quién avisamos si detectamos un accidente',
       body: ResponsiveContent(
         child: switch (contactsAsync) {
-          AsyncData(:final value) =>
-            value.isEmpty
-                ? const _EmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: value.length,
-                    itemBuilder: (context, index) =>
-                        _ContactTile(contact: value[index]),
+          AsyncData(:final value) => value.isEmpty
+              ? EmptyState(
+                  icon: Icons.emergency_outlined,
+                  message: 'Todavía no agregaste ningún contacto de emergencia.',
+                  actionLabel: 'Agregar contacto',
+                  onAction: () => showContactFormSheet(context),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.xxxl,
                   ),
+                  itemCount: value.length,
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                    child: _ContactTile(contact: value[index]),
+                  ),
+                ),
           AsyncError(:final error) => Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -59,35 +70,6 @@ class EmergencyContactsPage extends ConsumerWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.emergency_outlined,
-              size: 48,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Todavía no agregaste ningún contacto de emergencia.',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ContactTile extends ConsumerWidget {
   const _ContactTile({required this.contact});
 
@@ -95,38 +77,101 @@ class _ContactTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
     final subtitleParts = [
       contact.phone,
       if (contact.relationship != null) contact.relationship!,
     ];
     final channels = [
-      if (contact.notifyPush) 'push',
+      if (contact.notifyPush) 'Push',
       if (contact.notifySms) 'SMS',
       if (contact.notifyWhatsapp) 'WhatsApp',
     ];
 
-    return ListTile(
-      leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-      title: Text(contact.name),
-      subtitle: Text(
-        [
-          subtitleParts.join(' · '),
-          if (channels.isNotEmpty) 'Alertas: ${channels.join(', ')}',
-        ].join('\n'),
-      ),
-      isThreeLine: true,
-      trailing: PopupMenuButton<_ContactAction>(
-        onSelected: (action) => switch (action) {
-          _ContactAction.edit => showContactFormSheet(
-            context,
-            contact: contact,
-          ),
-          _ContactAction.delete => _confirmDelete(context, ref, contact),
-        },
-        itemBuilder: (context) => const [
-          PopupMenuItem(value: _ContactAction.edit, child: Text('Editar')),
-          PopupMenuItem(value: _ContactAction.delete, child: Text('Eliminar')),
-        ],
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 6, color: colorScheme.tertiary),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: colorScheme.tertiaryContainer,
+                      child: Icon(
+                        Icons.person_rounded,
+                        color: colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            contact.name,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitleParts.join(' · '),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                          if (channels.isNotEmpty) ...[
+                            const SizedBox(height: AppSpacing.sm),
+                            Wrap(
+                              spacing: AppSpacing.xs,
+                              children: [
+                                for (final channel in channels)
+                                  Chip(
+                                    label: Text(channel),
+                                    visualDensity: VisualDensity.compact,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    PopupMenuButton<_ContactAction>(
+                      onSelected: (action) => switch (action) {
+                        _ContactAction.edit => showContactFormSheet(
+                          context,
+                          contact: contact,
+                        ),
+                        _ContactAction.delete => _confirmDelete(
+                          context,
+                          ref,
+                          contact,
+                        ),
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: _ContactAction.edit,
+                          child: Text('Editar'),
+                        ),
+                        PopupMenuItem(
+                          value: _ContactAction.delete,
+                          child: Text('Eliminar'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -282,9 +327,24 @@ class _ContactFormSheetState extends ConsumerState<_ContactFormSheet> {
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 enabled: !isSaving,
-                validator: (value) => (value == null || value.trim().isEmpty)
-                    ? 'Ingresa el teléfono.'
-                    : null,
+                hintText: '+591 70000000',
+                // Bug real encontrado en vivo: un número guardado sin
+                // código de país (ej. "75449119") hace que Twilio y
+                // WhatsApp fallen sin avisar — la alerta queda marcada
+                // como enviada por dentro pero nunca llega. Exigir el
+                // "+" acá corta ese problema en el origen, en vez de
+                // descubrirlo recién cuando de verdad hace falta avisar.
+                validator: (value) {
+                  final trimmed = value?.trim() ?? '';
+                  if (trimmed.isEmpty) return 'Ingresa el teléfono.';
+                  // Tolera espacios/guiones al escribir ("+591 700 00002")
+                  // — solo la forma (código de país + dígitos) importa acá.
+                  final digitsOnly = trimmed.replaceAll(RegExp(r'[^\d+]'), '');
+                  if (!RegExp(r'^\+\d{8,15}$').hasMatch(digitsOnly)) {
+                    return 'Incluye el código de país, ej: +591 70000000.';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               AppTextField(
@@ -292,10 +352,17 @@ class _ContactFormSheetState extends ConsumerState<_ContactFormSheet> {
                 controller: _relationshipController,
                 enabled: !isSaving,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              Text(
+                'Cómo avisarle',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Notificar por push'),
+                title: const Text('Notificación push'),
+                subtitle: const Text(
+                  'Solo si esta persona también tiene la app instalada.',
+                ),
                 value: _notifyPush,
                 onChanged: isSaving
                     ? null
@@ -303,7 +370,10 @@ class _ContactFormSheetState extends ConsumerState<_ContactFormSheet> {
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Notificar por SMS'),
+                title: const Text('Mensaje de texto (SMS)'),
+                subtitle: const Text(
+                  'Le llega aunque no tenga la app ni internet.',
+                ),
                 value: _notifySms,
                 onChanged: isSaving
                     ? null

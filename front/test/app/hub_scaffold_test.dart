@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sentinel_v2/app/app_drawer.dart';
+import 'package:sentinel_v2/app/hub_scaffold.dart';
 import 'package:sentinel_v2/app/router.dart' show AppRoutes;
 import 'package:sentinel_v2/features/auth/domain/entities/app_user.dart';
 import 'package:sentinel_v2/features/auth/domain/repositories/auth_repository.dart';
@@ -38,10 +38,10 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> signOut() async => signedOut = true;
 }
 
-/// A page with a drawer, reached via `push` from a first screen — the
-/// exact shape every real hub page (`HomePage`, `GroupsPage`, ...) has:
-/// `Navigator.canPop` is true, but the `Scaffold` also has a non-null
-/// `drawer`.
+/// A page built on [HubScaffold], the exact shape every real hub page
+/// (`HomePage`, `GroupsPage`, ...) has since the UI/UX redesign pass moved
+/// primary navigation to `AppShell`'s bottom bar/rail and left `HubScaffold`
+/// responsible only for the profile/sign-out avatar menu.
 class _HubLikePage extends StatelessWidget {
   const _HubLikePage({required this.title});
 
@@ -49,11 +49,7 @@ class _HubLikePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      drawer: const AppDrawer(),
-      body: Text('$title content'),
-    );
+    return HubScaffold(title: title, body: Text('$title content'));
   }
 }
 
@@ -77,8 +73,9 @@ GoRouter _testRouter() {
         builder: (context, state) => const _HubLikePage(title: 'Home page'),
       ),
       GoRoute(
-        path: AppRoutes.groups,
-        builder: (context, state) => const _HubLikePage(title: 'Groups page'),
+        path: AppRoutes.profile,
+        builder: (context, state) =>
+            const Scaffold(body: Text('Profile page content')),
       ),
     ],
   );
@@ -103,60 +100,45 @@ Future<void> _pumpToHub(WidgetTester tester) async {
 }
 
 void main() {
-  group('AppDrawer', () {
-    testWidgets(
-      'a hub page reached via push shows a drawer button, not a back arrow',
-      (tester) async {
-        await _pumpToHub(tester);
-
-        expect(find.byIcon(Icons.arrow_back), findsNothing);
-        expect(find.byTooltip('Open navigation menu'), findsOneWidget);
-      },
-    );
-
-    testWidgets('lists the five hub destinations plus profile and sign out', (
+  group('HubScaffold', () {
+    testWidgets('shows the page title and an account menu button', (
       tester,
     ) async {
       await _pumpToHub(tester);
 
-      await tester.tap(find.byTooltip('Open navigation menu'));
-      await tester.pumpAndSettle();
-
-      for (final label in [
-        'Inicio',
-        'Grupos',
-        'Vehículos',
-        'Contactos',
-        'Historial',
-        'Perfil',
-        'Cerrar sesión',
-      ]) {
-        expect(find.text(label), findsOneWidget);
-      }
+      expect(find.text('Home page'), findsOneWidget);
+      expect(find.text('Home page content'), findsOneWidget);
+      expect(find.byTooltip('Cuenta'), findsOneWidget);
     });
 
-    testWidgets('tapping a destination closes the drawer and navigates', (
+    testWidgets('the account menu offers "Perfil" and "Cerrar sesión"', (
       tester,
     ) async {
       await _pumpToHub(tester);
 
-      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.tap(find.byTooltip('Cuenta'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Grupos'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Groups page content'), findsOneWidget);
-      // The drawer closed rather than staying open over the new page.
-      expect(find.text('Cerrar sesión'), findsNothing);
+      expect(find.text('Perfil'), findsOneWidget);
+      expect(find.text('Cerrar sesión'), findsOneWidget);
     });
 
-    testWidgets('tapping "Cerrar sesión" signs out', (tester) async {
+    testWidgets('"Perfil" navigates to the profile route', (tester) async {
       await _pumpToHub(tester);
 
-      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.tap(find.byTooltip('Cuenta'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Perfil'));
       await tester.pumpAndSettle();
 
+      expect(find.text('Profile page content'), findsOneWidget);
+    });
+
+    testWidgets('"Cerrar sesión" signs out', (tester) async {
+      await _pumpToHub(tester);
+
+      await tester.tap(find.byTooltip('Cuenta'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Cerrar sesión'));
       await tester.pumpAndSettle();
 

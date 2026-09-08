@@ -6,17 +6,19 @@ import 'package:sentinel_v2/features/rides/domain/entities/location_fix.dart';
 import 'package:sentinel_v2/features/rides/domain/repositories/location_tracker.dart';
 
 class _FakeLocationTracker implements LocationTracker {
-  bool backgroundPermissionGranted = true;
+  bool permissionGranted = true;
 
   @override
-  Future<bool> ensurePermission() async => true;
+  Future<bool> ensurePermission() async => permissionGranted;
 
   @override
-  Future<bool> ensureBackgroundPermission() async =>
-      backgroundPermissionGranted;
+  Future<bool> ensureBackgroundPermission() async => permissionGranted;
 
   @override
   Stream<LocationFix> watchPosition() => const Stream.empty();
+
+  @override
+  Future<LocationFix?> getCurrentFix() async => null;
 }
 
 void main() {
@@ -56,9 +58,8 @@ void main() {
       expect(calls.single.arguments, {'sessionId': 's1'});
     });
 
-    test('start() throws without reaching the channel when background permission is denied', () async {
-      final tracker = _FakeLocationTracker()
-        ..backgroundPermissionGranted = false;
+    test('start() throws without reaching the channel when permission is denied', () async {
+      final tracker = _FakeLocationTracker()..permissionGranted = false;
       final service = AndroidBackgroundLocationService(
         tracker: tracker,
         channel: channel,

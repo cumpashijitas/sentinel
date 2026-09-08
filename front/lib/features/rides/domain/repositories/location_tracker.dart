@@ -45,4 +45,13 @@ abstract interface class LocationTracker {
   /// the app on Web) — this tracker has no independent notion of "a ride
   /// is active" itself.
   Stream<LocationFix> watchPosition();
+
+  /// A single, one-shot read of the device's current position — for a
+  /// screen that just needs "where am I right now" (e.g. centering a map
+  /// camera) without subscribing to [watchPosition]'s ongoing stream.
+  /// Returns `null` on anything short of success (permission denied,
+  /// location services off, timeout) — callers use this purely to pick a
+  /// better default, so a failure here must never surface as an error,
+  /// only as "fall back to whatever this screen already had".
+  Future<LocationFix?> getCurrentFix();
 }

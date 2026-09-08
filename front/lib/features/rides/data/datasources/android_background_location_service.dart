@@ -28,17 +28,24 @@ class AndroidBackgroundLocationService implements BackgroundLocationService {
   Future<void> start(String sessionId) async {
     PlatformCapabilities.requireAndroid('BackgroundLocationService.start');
 
-    // Checked here, before ever reaching the native side: `watchPosition`
-    // only needs `ensurePermission`'s "while in use" grant, but a
-    // foreground service with no visible Activity does not count as
-    // "in use" to Android's location permission system — it needs the
-    // stronger "Allow all the time" grant. See `ensureBackgroundPermission`.
-    final granted = await _tracker.ensureBackgroundPermission();
+    // Bug real encontrado en vivo: este chequeo pedía antes
+    // `ensureBackgroundPermission` (el permiso "Ubicación todo el
+    // tiempo" / `ACCESS_BACKGROUND_LOCATION`). Eso es innecesario —y en
+    // la práctica bloqueaba siempre el compartir— porque Android exime
+    // de ese permiso a un foreground service con notificación visible
+    // (`RideBackgroundService` llama `startForeground()` apenas arranca,
+    // con `foregroundServiceType="location"`): el sistema lo trata como
+    // "en primer plano" a efectos de ubicación aunque no haya ninguna
+    // Activity visible. Alcanza con el permiso normal ("mientras se usa
+    // la app"), que es lo que `ensurePermission` pide — y que además
+    // Android sí ofrece en el diálogo estándar (el de "todo el tiempo"
+    // casi nunca aparece ahí; hay que activarlo a mano en Ajustes, cosa
+    // que ningún usuario real hace).
+    final granted = await _tracker.ensurePermission();
     if (!granted) {
       throw const DataException(
-        'Sentinel necesita permiso de ubicación "todo el tiempo" para '
-        'seguir compartiendo tu posición cuando la app está en segundo '
-        'plano. Actívalo en Ajustes del sistema > Apps > Sentinel > '
+        'Sentinel necesita permiso de ubicación para compartir tu '
+        'posición. Actívalo en Ajustes del sistema > Apps > Sentinel > '
         'Permisos > Ubicación.',
       );
     }

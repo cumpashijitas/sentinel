@@ -1,8 +1,13 @@
 // Sentinel — cliente mínimo de WhatsApp Cloud API (Meta).
 //
-// Puerto literal de
-// `supabase/functions/dispatch-accident-alerts/whatsapp.ts` — usa solo
-// `fetch`, sin nada específico de Deno.
+// Basado en `supabase/functions/dispatch-accident-alerts/whatsapp.ts`, con
+// un cambio real encontrado en vivo creando la plantilla de este proyecto:
+// Meta ya no acepta variables numéricas (`{{1}}`/`{{2}}`/`{{3}}`) en
+// plantillas nuevas — ahora exige nombres (`{{rider_name}}`, etc.), y el
+// envío tiene que mandar `parameter_name` en cada parámetro para que
+// coincida con el nombre de la plantilla, no alcanza con el orden.
+
+import type { WhatsAppTemplateParam } from './message.js';
 
 export interface WhatsAppSendResult {
   ok: boolean;
@@ -16,7 +21,7 @@ export async function sendWhatsAppTemplate(
   templateName: string,
   templateLanguage: string,
   toE164: string,
-  params: readonly string[],
+  params: readonly WhatsAppTemplateParam[],
 ): Promise<WhatsAppSendResult> {
   try {
     const response = await fetch(
@@ -37,7 +42,11 @@ export async function sendWhatsAppTemplate(
             components: [
               {
                 type: 'body',
-                parameters: params.map((text) => ({ type: 'text', text })),
+                parameters: params.map((param) => ({
+                  type: 'text',
+                  parameter_name: param.name,
+                  text: param.value,
+                })),
               },
             ],
           },

@@ -8,21 +8,21 @@ part of 'map_providers.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// Built once from [AppConfig] (`--dart-define-from-file`) — see
+/// Built once from [AppConfig] (`front/.env`, via `flutter_dotenv`) — see
 /// `MapTileConfig`'s own doc comment for why every field here matters,
 /// especially `offlineAllowed`.
 
 @ProviderFor(mapTileConfig)
 final mapTileConfigProvider = MapTileConfigProvider._();
 
-/// Built once from [AppConfig] (`--dart-define-from-file`) — see
+/// Built once from [AppConfig] (`front/.env`, via `flutter_dotenv`) — see
 /// `MapTileConfig`'s own doc comment for why every field here matters,
 /// especially `offlineAllowed`.
 
 final class MapTileConfigProvider
     extends $FunctionalProvider<MapTileConfig, MapTileConfig, MapTileConfig>
     with $Provider<MapTileConfig> {
-  /// Built once from [AppConfig] (`--dart-define-from-file`) — see
+  /// Built once from [AppConfig] (`front/.env`, via `flutter_dotenv`) — see
   /// `MapTileConfig`'s own doc comment for why every field here matters,
   /// especially `offlineAllowed`.
   MapTileConfigProvider._()
@@ -58,7 +58,7 @@ final class MapTileConfigProvider
   }
 }
 
-String _$mapTileConfigHash() => r'5a88d8b5c6b1867725996ad3c8aae0fc2516bc99';
+String _$mapTileConfigHash() => r'2e5425fa9dcbe1d2c1aa0411990d8e97c35dd745';
 
 /// `keepAlive`: cheap to construct (no I/O, no native handles of its own —
 /// those live in the `Widget`/`MapController` it hands out per screen),
@@ -110,4 +110,4 @@ final class MapServiceProvider
   }
 }
 
-String _$mapServiceHash() => r'63dda04ef577e3aa9fc36b78d60163a00cf57622';
+String _$mapServiceHash() => r'867073625b46beb6bb3755de86f961c603201f59';

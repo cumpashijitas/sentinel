@@ -90,3 +90,102 @@ class GroupActionsController extends _$GroupActionsController {
     });
   }
 }
+
+/// Bug real encontrado en vivo: `edit` vivía antes en
+/// [GroupActionsController], compartiendo `state` con `leave` — y
+/// `GroupDetailPage` tiene un `ref.listen(groupActionsControllerProvider,
+/// ...)` que hace `context.pop()` en cuanto ve loading→data, escrito
+/// pensando solo en "salir del grupo terminó, volvé a la lista". Guardar
+/// una edición también dispara loading→data en ese mismo provider, así que
+/// ese listener se activaba igual y sacaba a la persona de la pantalla
+/// (o competía con el propio `Navigator.pop()` del sheet de edición) justo
+/// al guardar — el "se traba y no hace nada" reportado en vivo. Un
+/// controlador separado, que nadie más escucha, corta esa interferencia.
+@riverpod
+class GroupEditController extends _$GroupEditController {
+  @override
+  FutureOr<void> build() {}
+
+  Future<RideGroup?> edit({
+    required String groupId,
+    required String name,
+    String? description,
+  }) async {
+    state = const AsyncLoading();
+    RideGroup? updated;
+    state = await AsyncValue.guard(() async {
+      updated = await ref
+          .read(groupRepositoryProvider)
+          .updateGroup(groupId: groupId, name: name, description: description);
+      ref.invalidate(myGroupsProvider);
+      ref.invalidate(groupDetailProvider(groupId));
+    });
+    return state.hasError ? null : updated;
+  }
+}
+
+/// Asignar/quitar admin y expulsar integrantes — controlador propio, no
+/// compartido con [GroupActionsController]/[GroupEditController], mismo
+/// motivo que [GroupEditController]: `GroupDetailPage` escucha el `state`
+/// de `GroupActionsController` para saber cuándo "salir del grupo"
+/// terminó y sacar al usuario de la pantalla — una acción de member
+/// management disparando ese mismo listener por accidente sería
+/// exactamente el bug ya encontrado una vez.
+@riverpod
+class GroupMemberActionsController extends _$GroupMemberActionsController {
+  @override
+  FutureOr<void> build() {}
+
+  Future<bool> setRole({
+    required String groupId,
+    required String targetUserId,
+    required GroupMemberRole role,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref
+          .read(groupRepositoryProvider)
+          .setMemberRole(
+            groupId: groupId,
+            targetUserId: targetUserId,
+            role: role,
+          );
+      ref.invalidate(groupMembersProvider(groupId));
+    });
+    return !state.hasError;
+  }
+
+  Future<bool> remove({
+    required String groupId,
+    required String targetUserId,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref
+          .read(groupRepositoryProvider)
+          .removeMember(groupId: groupId, targetUserId: targetUserId);
+      ref.invalidate(groupMembersProvider(groupId));
+    });
+    return !state.hasError;
+  }
+}
+
+/// El aviso fijado del grupo — controlador propio por la misma razón que
+/// [GroupEditController].
+@riverpod
+class GroupNoteController extends _$GroupNoteController {
+  @override
+  FutureOr<void> build() {}
+
+  Future<RideGroup?> setNote({required String groupId, String? note}) async {
+    state = const AsyncLoading();
+    RideGroup? updated;
+    state = await AsyncValue.guard(() async {
+      updated = await ref
+          .read(groupRepositoryProvider)
+          .setPinnedNote(groupId: groupId, note: note);
+      ref.invalidate(groupDetailProvider(groupId));
+    });
+    return state.hasError ? null : updated;
+  }
+}

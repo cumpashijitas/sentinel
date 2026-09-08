@@ -1,4 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Bug real encontrado en vivo: este permiso solo estaba declarado en
+         android/app/src/debug/AndroidManifest.xml (el comentario ahí lo
+         explica como "necesario para desarrollo" — hot reload, etc. — pero
+         sin darse cuenta de que sin repetirlo acá, el build RELEASE se
+         queda sin ningún permiso de red en absoluto). Sin esto, el APK
+         instalado no podía abrir ninguna conexión a ningún lado —
+         cleartext, HTTPS, LAN o túnel, daba igual — por eso "no se pudo
+         conectar con el servidor" pasaba siempre, sin importar qué URL
+         apuntara API_BASE_URL. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <!-- Fase 6 — RideBackgroundService. Lets the app receive location
@@ -30,7 +40,8 @@
     <application
         android:label="Sentinel"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:networkSecurityConfig="@xml/network_security_config">
         <!-- Sourced from the MAPS_API_KEY Gradle property (see
              android/app/build.gradle.kts) — never hardcoded here. Empty by
              default; set it in android/local.properties

@@ -57,6 +57,33 @@ class GeolocatorLocationTracker implements LocationTracker {
     ).map(_toFix);
   }
 
+  @override
+  Future<LocationFix?> getCurrentFix() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return null;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      return _toFix(position);
+    } on Object {
+      // Cualquier falla (timeout, GPS apagado a mitad de la llamada,
+      // excepción propia de `geolocator`) se traduce a `null` — ver el
+      // contrato de `getCurrentFix` en `LocationTracker`.
+      return null;
+    }
+  }
+
   LocationFix _toFix(Position position) => LocationFix(
     latitude: position.latitude,
     longitude: position.longitude,

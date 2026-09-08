@@ -74,6 +74,17 @@ class _FakeGroupRemoteDataSource implements GroupRemoteDataSource {
   }
 
   @override
+  Future<Map<String, dynamic>> updateGroup({
+    required String groupId,
+    required String name,
+    String? description,
+  }) async {
+    final error = errorToThrow;
+    if (error != null) throw error;
+    return groupToReturn!;
+  }
+
+  @override
   Future<String> joinGroupByCode(String inviteCode) async {
     final error = errorToThrow;
     if (error != null) throw error;
@@ -85,6 +96,25 @@ class _FakeGroupRemoteDataSource implements GroupRemoteDataSource {
     final error = errorToThrow;
     if (error != null) throw error;
   }
+
+  @override
+  Future<Map<String, dynamic>> setMemberRole({
+    required String groupId,
+    required String targetUserId,
+    required String role,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> removeMember({
+    required String groupId,
+    required String targetUserId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<Map<String, dynamic>> setPinnedNote({
+    required String groupId,
+    String? note,
+  }) => throw UnimplementedError();
 }
 
 void main() {

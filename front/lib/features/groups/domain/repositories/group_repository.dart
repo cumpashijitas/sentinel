@@ -25,6 +25,14 @@ abstract interface class GroupRepository {
   /// Creates a group and enrolls the caller as its owner, atomically.
   Future<RideGroup> createGroup({required String name, String? description});
 
+  /// Renames/redescribes [groupId]. Throws [DataException] if the caller
+  /// isn't the owner or an admin.
+  Future<RideGroup> updateGroup({
+    required String groupId,
+    required String name,
+    String? description,
+  });
+
   /// Joins (or reactivates membership in) the group matching
   /// [inviteCode]. Returns the joined group's id. Throws [DataException]
   /// with a user-facing message for an invalid/inactive code.
@@ -34,4 +42,27 @@ abstract interface class GroupRepository {
   /// active member, or if they're the group's owner (a group must always
   /// have one).
   Future<void> leaveGroup(String groupId);
+
+  /// Promotes/demotes [targetUserId] between `admin` and `member`. Only the
+  /// group's owner may call this — throws [DataException] otherwise, or if
+  /// [targetUserId] is the owner (whose role never changes this way).
+  Future<void> setMemberRole({
+    required String groupId,
+    required String targetUserId,
+    required GroupMemberRole role,
+  });
+
+  /// Removes [targetUserId] from [groupId] — an admin-initiated version of
+  /// [leaveGroup]. Throws [DataException] if the caller isn't an
+  /// owner/admin, if [targetUserId] is the group's owner (can't be
+  /// removed), or if the caller tries to remove themselves (use
+  /// [leaveGroup] instead).
+  Future<void> removeMember({
+    required String groupId,
+    required String targetUserId,
+  });
+
+  /// Sets (or clears, with `null`) [groupId]'s pinned announcement. Throws
+  /// [DataException] if the caller isn't the owner or an admin.
+  Future<RideGroup> setPinnedNote({required String groupId, String? note});
 }

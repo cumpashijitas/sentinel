@@ -35,6 +35,25 @@ groupRoutes.post(
   }),
 );
 
+const updateGroupSchema = z.object({
+  name: z.string(),
+  description: z.string().nullable().optional(),
+});
+
+groupRoutes.patch(
+  '/groups/:id',
+  asyncHandler(async (req, res) => {
+    const body = updateGroupSchema.parse(req.body);
+    const group = await groupService.updateGroup(
+      req.userId,
+      req.params.id,
+      body.name,
+      body.description ?? null,
+    );
+    res.json(group);
+  }),
+);
+
 const joinGroupSchema = z.object({ invite_code: z.string().min(1) });
 
 groupRoutes.post(
@@ -65,5 +84,44 @@ groupRoutes.get(
   '/groups/:id/members',
   asyncHandler(async (req, res) => {
     res.json(await groupService.fetchMembers(req.userId, req.params.id));
+  }),
+);
+
+const setMemberRoleSchema = z.object({ role: z.enum(['admin', 'member']) });
+
+groupRoutes.patch(
+  '/groups/:id/members/:userId/role',
+  asyncHandler(async (req, res) => {
+    const body = setMemberRoleSchema.parse(req.body);
+    const member = await groupService.setMemberRole(
+      req.userId,
+      req.params.id,
+      req.params.userId,
+      body.role,
+    );
+    res.json(member);
+  }),
+);
+
+groupRoutes.delete(
+  '/groups/:id/members/:userId',
+  asyncHandler(async (req, res) => {
+    await groupService.removeMember(req.userId, req.params.id, req.params.userId);
+    res.status(204).send();
+  }),
+);
+
+const setPinnedNoteSchema = z.object({ note: z.string().nullable() });
+
+groupRoutes.patch(
+  '/groups/:id/note',
+  asyncHandler(async (req, res) => {
+    const body = setPinnedNoteSchema.parse(req.body);
+    const group = await groupService.setPinnedNote(
+      req.userId,
+      req.params.id,
+      body.note,
+    );
+    res.json(group);
   }),
 );

@@ -26,13 +26,18 @@ import io.flutter.embedding.engine.dart.DartExecutor
  * own. Its only two jobs are:
  *  1. Call [ServiceCompat.startForeground] with a persistent notification.
  *     That is both what protects this process from being killed under
- *     memory pressure while backgrounded, and — separately — what
- *     Android's location permission system requires for *any* component
- *     to receive updates outside of visible foreground UI (holding
- *     `ACCESS_BACKGROUND_LOCATION` is necessary but not sufficient by
- *     itself; see `AndroidBackgroundLocationService.start` on the Dart
- *     side, which checks that permission before ever starting this
- *     service).
+ *     memory pressure while backgrounded, and — separately — what exempts
+ *     this service from Android's background-location restriction in the
+ *     first place: a foreground service declaring
+ *     `FOREGROUND_SERVICE_TYPE_LOCATION` (as this one does) is allowed to
+ *     access location with just the normal "while in use" grant, with no
+ *     need for `ACCESS_BACKGROUND_LOCATION` at all — see
+ *     `AndroidBackgroundLocationService.start` on the Dart side, which
+ *     only checks for that normal grant before ever starting this
+ *     service (a bug that required the stronger "Allow all the time"
+ *     grant here was fixed live: it made sharing fail for every real
+ *     user, since that grant isn't offered in the standard permission
+ *     dialog).
  *  2. Boot a second, headless [FlutterEngine] — entirely separate from the
  *     one `MainActivity` uses for the UI — running `rideBackgroundMain()`
  *     (`lib/background/ride_background_main.dart`), which does the actual

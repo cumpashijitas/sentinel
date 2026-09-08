@@ -401,3 +401,221 @@ abstract class _$GroupActionsController extends $AsyncNotifier<void> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// Bug real encontrado en vivo: `edit` vivía antes en
+/// [GroupActionsController], compartiendo `state` con `leave` — y
+/// `GroupDetailPage` tiene un `ref.listen(groupActionsControllerProvider,
+/// ...)` que hace `context.pop()` en cuanto ve loading→data, escrito
+/// pensando solo en "salir del grupo terminó, volvé a la lista". Guardar
+/// una edición también dispara loading→data en ese mismo provider, así que
+/// ese listener se activaba igual y sacaba a la persona de la pantalla
+/// (o competía con el propio `Navigator.pop()` del sheet de edición) justo
+/// al guardar — el "se traba y no hace nada" reportado en vivo. Un
+/// controlador separado, que nadie más escucha, corta esa interferencia.
+
+@ProviderFor(GroupEditController)
+final groupEditControllerProvider = GroupEditControllerProvider._();
+
+/// Bug real encontrado en vivo: `edit` vivía antes en
+/// [GroupActionsController], compartiendo `state` con `leave` — y
+/// `GroupDetailPage` tiene un `ref.listen(groupActionsControllerProvider,
+/// ...)` que hace `context.pop()` en cuanto ve loading→data, escrito
+/// pensando solo en "salir del grupo terminó, volvé a la lista". Guardar
+/// una edición también dispara loading→data en ese mismo provider, así que
+/// ese listener se activaba igual y sacaba a la persona de la pantalla
+/// (o competía con el propio `Navigator.pop()` del sheet de edición) justo
+/// al guardar — el "se traba y no hace nada" reportado en vivo. Un
+/// controlador separado, que nadie más escucha, corta esa interferencia.
+final class GroupEditControllerProvider
+    extends $AsyncNotifierProvider<GroupEditController, void> {
+  /// Bug real encontrado en vivo: `edit` vivía antes en
+  /// [GroupActionsController], compartiendo `state` con `leave` — y
+  /// `GroupDetailPage` tiene un `ref.listen(groupActionsControllerProvider,
+  /// ...)` que hace `context.pop()` en cuanto ve loading→data, escrito
+  /// pensando solo en "salir del grupo terminó, volvé a la lista". Guardar
+  /// una edición también dispara loading→data en ese mismo provider, así que
+  /// ese listener se activaba igual y sacaba a la persona de la pantalla
+  /// (o competía con el propio `Navigator.pop()` del sheet de edición) justo
+  /// al guardar — el "se traba y no hace nada" reportado en vivo. Un
+  /// controlador separado, que nadie más escucha, corta esa interferencia.
+  GroupEditControllerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'groupEditControllerProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$groupEditControllerHash();
+
+  @$internal
+  @override
+  GroupEditController create() => GroupEditController();
+}
+
+String _$groupEditControllerHash() =>
+    r'6d48912a78d5508829b8621d960e1dc809498f83';
+
+/// Bug real encontrado en vivo: `edit` vivía antes en
+/// [GroupActionsController], compartiendo `state` con `leave` — y
+/// `GroupDetailPage` tiene un `ref.listen(groupActionsControllerProvider,
+/// ...)` que hace `context.pop()` en cuanto ve loading→data, escrito
+/// pensando solo en "salir del grupo terminó, volvé a la lista". Guardar
+/// una edición también dispara loading→data en ese mismo provider, así que
+/// ese listener se activaba igual y sacaba a la persona de la pantalla
+/// (o competía con el propio `Navigator.pop()` del sheet de edición) justo
+/// al guardar — el "se traba y no hace nada" reportado en vivo. Un
+/// controlador separado, que nadie más escucha, corta esa interferencia.
+
+abstract class _$GroupEditController extends $AsyncNotifier<void> {
+  FutureOr<void> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<void>, void>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<void>, void>,
+              AsyncValue<void>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// Asignar/quitar admin y expulsar integrantes — controlador propio, no
+/// compartido con [GroupActionsController]/[GroupEditController], mismo
+/// motivo que [GroupEditController]: `GroupDetailPage` escucha el `state`
+/// de `GroupActionsController` para saber cuándo "salir del grupo"
+/// terminó y sacar al usuario de la pantalla — una acción de member
+/// management disparando ese mismo listener por accidente sería
+/// exactamente el bug ya encontrado una vez.
+
+@ProviderFor(GroupMemberActionsController)
+final groupMemberActionsControllerProvider =
+    GroupMemberActionsControllerProvider._();
+
+/// Asignar/quitar admin y expulsar integrantes — controlador propio, no
+/// compartido con [GroupActionsController]/[GroupEditController], mismo
+/// motivo que [GroupEditController]: `GroupDetailPage` escucha el `state`
+/// de `GroupActionsController` para saber cuándo "salir del grupo"
+/// terminó y sacar al usuario de la pantalla — una acción de member
+/// management disparando ese mismo listener por accidente sería
+/// exactamente el bug ya encontrado una vez.
+final class GroupMemberActionsControllerProvider
+    extends $AsyncNotifierProvider<GroupMemberActionsController, void> {
+  /// Asignar/quitar admin y expulsar integrantes — controlador propio, no
+  /// compartido con [GroupActionsController]/[GroupEditController], mismo
+  /// motivo que [GroupEditController]: `GroupDetailPage` escucha el `state`
+  /// de `GroupActionsController` para saber cuándo "salir del grupo"
+  /// terminó y sacar al usuario de la pantalla — una acción de member
+  /// management disparando ese mismo listener por accidente sería
+  /// exactamente el bug ya encontrado una vez.
+  GroupMemberActionsControllerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'groupMemberActionsControllerProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$groupMemberActionsControllerHash();
+
+  @$internal
+  @override
+  GroupMemberActionsController create() => GroupMemberActionsController();
+}
+
+String _$groupMemberActionsControllerHash() =>
+    r'1d3f0e826e78807ac9f972dff5c5aef0f72ed693';
+
+/// Asignar/quitar admin y expulsar integrantes — controlador propio, no
+/// compartido con [GroupActionsController]/[GroupEditController], mismo
+/// motivo que [GroupEditController]: `GroupDetailPage` escucha el `state`
+/// de `GroupActionsController` para saber cuándo "salir del grupo"
+/// terminó y sacar al usuario de la pantalla — una acción de member
+/// management disparando ese mismo listener por accidente sería
+/// exactamente el bug ya encontrado una vez.
+
+abstract class _$GroupMemberActionsController extends $AsyncNotifier<void> {
+  FutureOr<void> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<void>, void>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<void>, void>,
+              AsyncValue<void>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// El aviso fijado del grupo — controlador propio por la misma razón que
+/// [GroupEditController].
+
+@ProviderFor(GroupNoteController)
+final groupNoteControllerProvider = GroupNoteControllerProvider._();
+
+/// El aviso fijado del grupo — controlador propio por la misma razón que
+/// [GroupEditController].
+final class GroupNoteControllerProvider
+    extends $AsyncNotifierProvider<GroupNoteController, void> {
+  /// El aviso fijado del grupo — controlador propio por la misma razón que
+  /// [GroupEditController].
+  GroupNoteControllerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'groupNoteControllerProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$groupNoteControllerHash();
+
+  @$internal
+  @override
+  GroupNoteController create() => GroupNoteController();
+}
+
+String _$groupNoteControllerHash() =>
+    r'4cd9808a52947c6df76b56f12a73d8d4d3d4fb72';
+
+/// El aviso fijado del grupo — controlador propio por la misma razón que
+/// [GroupEditController].
+
+abstract class _$GroupNoteController extends $AsyncNotifier<void> {
+  FutureOr<void> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<void>, void>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<void>, void>,
+              AsyncValue<void>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}

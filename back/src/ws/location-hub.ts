@@ -31,10 +31,12 @@ export function attachLocationHub(server: Server) {
   server.on('upgrade', (req: IncomingMessage, socket: Socket, head: Buffer) => {
     const url = new URL(req.url ?? '', 'http://internal');
     const match = SESSION_WS_PATH.exec(url.pathname);
-    if (!match) {
-      socket.destroy();
-      return;
-    }
+    // No destruye el socket en un no-match: server.ts también engancha
+    // emergency-share-hub.ts al mismo http.Server, y Node dispara TODOS
+    // los listeners de 'upgrade' registrados — destruir acá le ganaba la
+    // conexión al otro hub antes de que llegara a mirarla. Simplemente no
+    // hace nada y deja pasar el evento al siguiente listener.
+    if (!match) return;
     const sessionId = match[1];
     const token = url.searchParams.get('token');
 

@@ -18,6 +18,7 @@ import 'package:sentinel_v2/features/rides/domain/entities/ride_session_particip
 import 'package:sentinel_v2/features/rides/domain/repositories/background_location_service.dart';
 import 'package:sentinel_v2/features/rides/domain/repositories/live_location_repository.dart';
 import 'package:sentinel_v2/features/rides/domain/repositories/location_repository.dart';
+import 'package:sentinel_v2/features/rides/domain/repositories/location_tracker.dart';
 import 'package:sentinel_v2/features/rides/domain/repositories/ride_session_repository.dart';
 import 'package:sentinel_v2/features/rides/presentation/controllers/live_tracking_controller.dart';
 import 'package:sentinel_v2/features/rides/presentation/controllers/ride_sessions_controller.dart';
@@ -116,8 +117,12 @@ class _FakeBackgroundLocationService implements BackgroundLocationService {
 
 /// A no-op [MapController] — the map widget tests below only care about
 /// the roster/FAB rendered alongside the map, never about what the map
-/// engine itself does with a marker/route/camera call.
+/// engine itself does with a marker/route/camera call. Records
+/// [centerOnCoordinate] calls: the one regression test below
+/// ("centers the camera on the device's own position...") checks those.
 class _FakeMapController implements MapController {
+  final centeredOn = <MapCoordinate>[];
+
   @override
   Future<void> setMarkers(List<MapMarker> markers) async {}
 
@@ -128,7 +133,12 @@ class _FakeMapController implements MapController {
   Future<void> moveCamera(MapViewport viewport, {bool animate = true}) async {}
 
   @override
-  Future<void> centerOnCoordinate(MapCoordinate coordinate, {double? zoom}) async {}
+  Future<void> centerOnCoordinate(
+    MapCoordinate coordinate, {
+    double? zoom,
+  }) async {
+    centeredOn.add(coordinate);
+  }
 
   @override
   Future<void> fitBounds(
@@ -140,25 +150,51 @@ class _FakeMapController implements MapController {
   void dispose() {}
 }
 
+class _FakeLocationTracker implements LocationTracker {
+  _FakeLocationTracker([this.fix]);
+
+  final LocationFix? fix;
+
+  @override
+  Future<bool> ensurePermission() async => true;
+
+  @override
+  Future<bool> ensureBackgroundPermission() async => true;
+
+  @override
+  Stream<LocationFix> watchPosition() => const Stream.empty();
+
+  @override
+  Future<LocationFix?> getCurrentFix() async => fix;
+}
+
 /// Renders a plain [SizedBox] instead of an actual `MapLibreMap` platform
 /// view — `flutter test` has no platform view host, and these tests don't
 /// need one; they only exercise `RideMapPage`'s own layout/state, not the
 /// map engine. `onMapReady` still fires synchronously so `RideMapPage`'s
 /// `didUpdateWidget`-driven marker sync has a controller to call into.
 class _FakeMapService implements MapService {
+  _FakeMapService(this.controller);
+
+  final _FakeMapController controller;
+
   @override
   Widget buildMap({
     required MapTileConfig tileConfig,
     required MapViewport initialViewport,
     required ValueChanged<MapController> onMapReady,
   }) {
-    onMapReady(_FakeMapController());
+    onMapReady(controller);
     return const SizedBox.expand();
   }
 }
 
 void main() {
-  Future<void> pumpMapPage(WidgetTester tester) async {
+  Future<void> pumpMapPage(
+    WidgetTester tester, {
+    _FakeMapController? mapController,
+    LocationFix? deviceFix,
+  }) async {
     final fakeLiveLocationRepository = _FakeLiveLocationRepository();
     addTearDown(fakeLiveLocationRepository.close);
 
@@ -167,6 +203,9 @@ void main() {
         overrides: [
           rideSessionRepositoryProvider.overrideWithValue(
             _FakeRideSessionRepository(),
+          ),
+          locationTrackerProvider.overrideWithValue(
+            _FakeLocationTracker(deviceFix),
           ),
           liveLocationRepositoryProvider.overrideWithValue(
             fakeLiveLocationRepository,
@@ -182,7 +221,9 @@ void main() {
           // pumping a real flutter_map/TileLayer widget that would try to
           // fetch real tiles over the network, which `flutter test` has
           // no business doing.
-          mapServiceProvider.overrideWithValue(_FakeMapService()),
+          mapServiceProvider.overrideWithValue(
+            _FakeMapService(mapController ?? _FakeMapController()),
+          ),
           mapTileConfigProvider.overrideWithValue(
             const MapTileConfig(
               tilesUrl: 'https://example.test/{z}/{x}/{y}.png',
@@ -212,12 +253,42 @@ void main() {
     ) async {
       await pumpMapPage(tester);
 
-      expect(find.text('Compartir mi ubicación'), findsOneWidget);
+      expect(find.text('Compartir en el viaje'), findsOneWidget);
 
       await tester.tap(find.byType(FloatingActionButton));
       await tester.pumpAndSettle();
 
-      expect(find.text('Dejar de compartir'), findsOneWidget);
+      expect(find.text('Dejar de compartir en el viaje'), findsOneWidget);
     });
+
+    testWidgets(
+      // Bug real reportado en vivo: si nadie del grupo compartió su
+      // ubicación todavía, el mapa se quedaba centrado para siempre en
+      // (0,0) — "en medio del océano", indistinguible de "no carga".
+      // `RideMapPage` ahora pide la posición del propio dispositivo (vía
+      // `locationTrackerProvider`) para centrar la cámara ahí apenas esté
+      // disponible, sin esperar a que otro miembro comparta.
+      "centers the camera on the device's own position when no member "
+      'has shared a fix yet',
+      (tester) async {
+        final mapController = _FakeMapController();
+        await pumpMapPage(
+          tester,
+          mapController: mapController,
+          deviceFix: LocationFix(
+            latitude: -12.05,
+            longitude: -77.03,
+            recordedAt: DateTime.utc(2026, 8, 27),
+          ),
+        );
+
+        expect(
+          mapController.centeredOn,
+          contains(
+            const MapCoordinate(latitude: -12.05, longitude: -77.03),
+          ),
+        );
+      },
+    );
   });
 }
