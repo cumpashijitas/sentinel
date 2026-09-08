@@ -80,15 +80,39 @@ class HttpLiveLocationRemoteDataSource implements LiveLocationRemoteDataSource {
 
   @override
   Stream<Map<String, dynamic>> watchLocationChanges(String sessionId) {
-    late final WebSocketChannel channel;
     late final StreamController<Map<String, dynamic>> controller;
+    WebSocketChannel? channel;
     StreamSubscription<dynamic>? subscription;
+    Timer? reconnectTimer;
+    var backoff = _initialReconnectDelay;
+    var disposed = false;
 
-    controller = StreamController<Map<String, dynamic>>.broadcast(
-      onListen: () {
-        channel = WebSocketChannel.connect(_wsUri(sessionId));
-        subscription = channel.stream.listen(
+    // Bug real para el caso de uso de esta app (compartir ubicación
+    // manejando moto): antes, CUALQUIER corte de este WebSocket — un
+    // túnel, un cambio de torre celular, el backend reiniciándose —
+    // llegaba acá como un error fatal (`controller.addError`), que
+    // `sessionMemberLocationsProvider` convertía en `AsyncError` y
+    // `RideMapPage` mostraba como pantalla de error en vez del mapa. Sin
+    // ningún reintento, los dos dejaban de verse hasta cerrar y volver a
+    // abrir la pantalla — justo el peor momento, en movimiento. Ahora
+    // reconecta solo, en silencio, con backoff creciente (2s→4s→…→15s,
+    // tope) — el error nunca llega al stream público.
+    // Declaradas como variables (no como function declarations planas)
+    // porque se necesitan mutuamente: `connect` programa un reintento vía
+    // `scheduleReconnect`, y `scheduleReconnect` vuelve a llamar a
+    // `connect` — Dart no permite que una function declaration comun
+    // referencie otra declarada más abajo en el mismo bloque.
+    late final void Function() connect;
+    late final void Function() scheduleReconnect;
+
+    connect = () {
+      if (disposed) return;
+      try {
+        final ch = WebSocketChannel.connect(_wsUri(sessionId));
+        channel = ch;
+        subscription = ch.stream.listen(
           (raw) {
+            backoff = _initialReconnectDelay;
             final message = jsonDecode(raw as String) as Map<String, dynamic>;
             // The snapshot this connection also receives on open is
             // ignored here — [fetchCurrentLocations] already covers the
@@ -97,18 +121,38 @@ class HttpLiveLocationRemoteDataSource implements LiveLocationRemoteDataSource {
               controller.add(message['row'] as Map<String, dynamic>);
             }
           },
-          onError: controller.addError,
+          onError: (Object _, StackTrace _) => scheduleReconnect(),
+          onDone: scheduleReconnect,
+          cancelOnError: true,
         );
-      },
+      } on Object {
+        scheduleReconnect();
+      }
+    };
+
+    scheduleReconnect = () {
+      if (disposed) return;
+      reconnectTimer?.cancel();
+      reconnectTimer = Timer(backoff, connect);
+      backoff = backoff * 2 > _maxReconnectDelay ? _maxReconnectDelay : backoff * 2;
+    };
+
+    controller = StreamController<Map<String, dynamic>>.broadcast(
+      onListen: connect,
       onCancel: () {
+        disposed = true;
+        reconnectTimer?.cancel();
         unawaited(subscription?.cancel());
-        unawaited(channel.sink.close());
+        unawaited(channel?.sink.close());
         unawaited(controller.close());
       },
     );
 
     return controller.stream;
   }
+
+  static const _initialReconnectDelay = Duration(seconds: 2);
+  static const _maxReconnectDelay = Duration(seconds: 15);
 
   @override
   Future<void> upsertMyLocation({
