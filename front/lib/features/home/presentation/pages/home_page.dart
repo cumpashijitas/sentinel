@@ -9,6 +9,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../emergency_contacts/presentation/controllers/emergency_contacts_controller.dart';
 import '../../../groups/presentation/controllers/groups_controller.dart';
+import '../../../rides/presentation/controllers/live_tracking_controller.dart';
 import '../../../vehicles/presentation/controllers/vehicles_controller.dart';
 
 /// Landing screen — Modo Oscuro Táctico. Panel plano (mismo header que
@@ -47,6 +48,14 @@ class HomePage extends ConsumerWidget {
           ..showSnackBar(SnackBar(content: Text(error.toString())));
       }
     });
+
+    // Pedido explícito en vivo: el permiso de ubicación se pide acá, apenas
+    // se entra a la app — no en el mapa, que ya no debe "suponer" nada al
+    // respecto. Resultado ignorado a propósito (mismo patrón que
+    // `pushTokenRegistrationProvider` en `app.dart`): solo importa que el
+    // diálogo del sistema aparezca una vez por sesión, `keepAlive` en el
+    // provider evita que se repita en cada rebuild.
+    ref.watch(locationPermissionOnEntryProvider);
 
     final user = ref.watch(authStateChangesProvider).value;
     final firstName = user?.displayName?.trim().split(' ').first;

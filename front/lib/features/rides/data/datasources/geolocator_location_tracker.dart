@@ -62,37 +62,37 @@ class GeolocatorLocationTracker implements LocationTracker {
     try {
       if (!await Geolocator.isLocationServiceEnabled()) return null;
 
-      // ANR real, reportado en vivo: esta llamada es solo para centrar la
-      // cámara del mapa de arranque — un "nice to have", no una acción que
-      // el usuario pidió explícitamente. Antes, si el permiso todavía
-      // estaba en `denied`, llamaba a `requestPermission()` acá mismo,
-      // disparando el diálogo nativo de Android desde un lugar donde el
-      // usuario no tocó nada para pedirlo. En un dispositivo real eso
-      // coincidió con la pantalla del mapa completamente trabada ("Sentinel
-      // no responde") hasta que la persona atendía el diálogo — el pedido
-      // explícito de permiso (con su propio diálogo, en el momento en que
-      // el usuario sí tocó "Compartir en el viaje") vive en
-      // [ensurePermission]; acá solo se *consulta* el estado ya existente,
-      // nunca se pide.
+      // Nunca pide permiso acá — solo consulta el que ya exista. El pedido
+      // explícito vive en [ensurePermission], disparado por una acción
+      // concreta del usuario (ver `HomePage`, que ahora lo pide apenas
+      // entra a la app — no el mapa, "que no debe suponer nada").
       final permission = await Geolocator.checkPermission();
       if (permission != LocationPermission.always &&
           permission != LocationPermission.whileInUse) {
         return null;
       }
 
-      // Defensa adicional: versiones de `geolocator_android` han tenido
-      // casos reales donde `LocationSettings.timeLimit` no corta la espera
-      // de forma confiable. Un `.timeout()` de Dart por fuera garantiza que
-      // esta llamada nunca cuelga la pantalla indefinidamente aunque el
-      // plugin nativo sí lo haga internamente.
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
-      ).timeout(const Duration(seconds: 8));
-      return _toFix(position);
+      // ANR real, reportado en vivo — y todavía después de sacar el pedido
+      // de permiso de arriba: `Geolocator.getCurrentPosition()` (pedirle al
+      // GPS un fix fresco, en el momento) puede bloquear el hilo principal
+      // de Android en ciertos dispositivos/versiones del plugin — un
+      // problema conocido del lado nativo, que un `.timeout()` de Dart por
+      // fuera NO puede destrabar (el bloqueo no está en el código Dart que
+      // ese timeout corta, sigue atascado del otro lado del canal nativo).
+      // `getLastKnownPosition()` es una lectura instantánea de la última
+      // posición que el sistema operativo ya tiene guardada — no dispara
+      // ningún pedido activo al GPS, así que no tiene ninguna vía por la
+      // que quedarse colgada. Puede devolver `null` si el dispositivo
+      // todavía no tiene ninguna posición guardada (recién instalado, GPS
+      // nunca usado) — ahí sí no hay nada que mostrar, y está bien: el
+      // mapa igual se termina centrando solo con el primer fix real que
+      // llegue por `watchPosition`/`fitBounds`.
+      final position = await Geolocator.getLastKnownPosition()
+          .timeout(const Duration(seconds: 3));
+      return position == null ? null : _toFix(position);
     } on Object {
-      // Cualquier falla (timeout, GPS apagado a mitad de la llamada,
-      // excepción propia de `geolocator`) se traduce a `null` — ver el
-      // contrato de `getCurrentFix` en `LocationTracker`.
+      // Cualquier falla se traduce a `null` — ver el contrato de
+      // `getCurrentFix` en `LocationTracker`.
       return null;
     }
   }

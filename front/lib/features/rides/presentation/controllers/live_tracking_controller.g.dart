@@ -51,6 +51,72 @@ final class LocationTrackerProvider
 
 String _$locationTrackerHash() => r'5bb096539a74ce3547296b1c9c8e473abc8cae69';
 
+/// Pide el permiso de ubicación una sola vez, apenas `HomePage` se
+/// construye por primera vez — pedido explícito en vivo: "ni bien
+/// ingrese a la app debería pedir mi ubicación, no debe suponer nada del
+/// mapa". Antes el único lugar que tocaba el permiso de ubicación era el
+/// propio mapa (para centrar la cámara), así que si el usuario nunca
+/// abría un mapa, nunca se le pedía nada — y si lo abría, el pedido
+/// llegaba tarde, mezclado con el resto de lo que esa pantalla intenta
+/// hacer. `keepAlive` + `HomePage` solo mirando (no leyendo) este
+/// provider: el pedido de permiso ocurre una única vez por sesión de la
+/// app, no cada vez que se reconstruye o se vuelve a esa pantalla.
+
+@ProviderFor(locationPermissionOnEntry)
+final locationPermissionOnEntryProvider = LocationPermissionOnEntryProvider._();
+
+/// Pide el permiso de ubicación una sola vez, apenas `HomePage` se
+/// construye por primera vez — pedido explícito en vivo: "ni bien
+/// ingrese a la app debería pedir mi ubicación, no debe suponer nada del
+/// mapa". Antes el único lugar que tocaba el permiso de ubicación era el
+/// propio mapa (para centrar la cámara), así que si el usuario nunca
+/// abría un mapa, nunca se le pedía nada — y si lo abría, el pedido
+/// llegaba tarde, mezclado con el resto de lo que esa pantalla intenta
+/// hacer. `keepAlive` + `HomePage` solo mirando (no leyendo) este
+/// provider: el pedido de permiso ocurre una única vez por sesión de la
+/// app, no cada vez que se reconstruye o se vuelve a esa pantalla.
+
+final class LocationPermissionOnEntryProvider
+    extends $FunctionalProvider<AsyncValue<bool>, bool, FutureOr<bool>>
+    with $FutureModifier<bool>, $FutureProvider<bool> {
+  /// Pide el permiso de ubicación una sola vez, apenas `HomePage` se
+  /// construye por primera vez — pedido explícito en vivo: "ni bien
+  /// ingrese a la app debería pedir mi ubicación, no debe suponer nada del
+  /// mapa". Antes el único lugar que tocaba el permiso de ubicación era el
+  /// propio mapa (para centrar la cámara), así que si el usuario nunca
+  /// abría un mapa, nunca se le pedía nada — y si lo abría, el pedido
+  /// llegaba tarde, mezclado con el resto de lo que esa pantalla intenta
+  /// hacer. `keepAlive` + `HomePage` solo mirando (no leyendo) este
+  /// provider: el pedido de permiso ocurre una única vez por sesión de la
+  /// app, no cada vez que se reconstruye o se vuelve a esa pantalla.
+  LocationPermissionOnEntryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'locationPermissionOnEntryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$locationPermissionOnEntryHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<bool> create(Ref ref) {
+    return locationPermissionOnEntry(ref);
+  }
+}
+
+String _$locationPermissionOnEntryHash() =>
+    r'3ee6c18dc159884bb797144abdbbdae5f8f9e748';
+
 @ProviderFor(liveLocationRemoteDataSource)
 final liveLocationRemoteDataSourceProvider =
     LiveLocationRemoteDataSourceProvider._();

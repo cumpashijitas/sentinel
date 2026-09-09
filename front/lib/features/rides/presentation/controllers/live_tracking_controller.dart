@@ -24,6 +24,21 @@ part 'live_tracking_controller.g.dart';
 @Riverpod(keepAlive: true)
 LocationTracker locationTracker(Ref ref) => const GeolocatorLocationTracker();
 
+/// Pide el permiso de ubicación una sola vez, apenas `HomePage` se
+/// construye por primera vez — pedido explícito en vivo: "ni bien
+/// ingrese a la app debería pedir mi ubicación, no debe suponer nada del
+/// mapa". Antes el único lugar que tocaba el permiso de ubicación era el
+/// propio mapa (para centrar la cámara), así que si el usuario nunca
+/// abría un mapa, nunca se le pedía nada — y si lo abría, el pedido
+/// llegaba tarde, mezclado con el resto de lo que esa pantalla intenta
+/// hacer. `keepAlive` + `HomePage` solo mirando (no leyendo) este
+/// provider: el pedido de permiso ocurre una única vez por sesión de la
+/// app, no cada vez que se reconstruye o se vuelve a esa pantalla.
+@Riverpod(keepAlive: true)
+Future<bool> locationPermissionOnEntry(Ref ref) {
+  return ref.watch(locationTrackerProvider).ensurePermission();
+}
+
 @riverpod
 LiveLocationRemoteDataSource liveLocationRemoteDataSource(Ref ref) {
   return HttpLiveLocationRemoteDataSource(ref.watch(apiClientProvider));
