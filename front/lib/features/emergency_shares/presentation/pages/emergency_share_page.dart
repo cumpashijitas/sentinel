@@ -332,9 +332,13 @@ class _ShareLink extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // El link apunta al front, no al backend — back/ solo sirve datos
     // (JSON + WebSocket), la pantalla que lo renderiza vive en el front,
-    // en la ruta pública /share/:token (ver app/router.dart).
+    // en la ruta pública /share/:token (ver app/router.dart). Sin `#`:
+    // `bootstrap.dart`'s `usePathUrlStrategy()` ya lo hace innecesario
+    // para que el web app sirva esta ruta directo, y es justo lo que
+    // permite que el mismo link sea un Android App Link — ver
+    // docs/deep_linking.md.
     final webBaseUrl = ref.watch(appConfigProvider).webBaseUrl;
-    final link = '$webBaseUrl/#/share/$shareToken';
+    final link = '$webBaseUrl/share/$shareToken';
 
     return Container(
       padding: const EdgeInsets.symmetric(

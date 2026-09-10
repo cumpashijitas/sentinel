@@ -1,0 +1,14 @@
+# Copia este archivo a android/key.properties (gitignored — nunca se
+# commitea, ver android/.gitignore) y completalo con los datos reales del
+# keystore de release. Sin este archivo, el build release sigue firmando
+# con el debug keystore (comportamiento de siempre) — ver build.gradle.kts.
+#
+# Generar el keystore (una sola vez — ver docs/deep_linking.md):
+#   keytool -genkeypair -v -keystore upload-keystore.jks -alias upload \
+#     -keyalg RSA -keysize 2048 -validity 10000
+#
+# storeFile es relativo a android/ (rootProject), no a android/app/.
+storeFile=upload-keystore.jks
+storePassword=
+keyAlias=upload
+keyPassword=

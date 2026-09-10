@@ -21,6 +21,21 @@ val mapsApiKey: String =
     (project.findProperty("MAPS_API_KEY") as String?)
         ?: localProperties.getProperty("MAPS_API_KEY", "")
 
+// Firma de release — necesaria para que el SHA-256 publicado en
+// assetlinks.json (Android App Links, ver docs/deep_linking.md) sea
+// estable y esté bajo el control del dueño del proyecto, no el debug
+// keystore autogenerado de cada máquina. Lee android/key.properties
+// (gitignored — nunca se commitea, ver android/.gitignore), que no
+// existe todavía en un checkout nuevo: en ese caso cae de vuelta al
+// debug keystore, igual que antes, para no romper un build local común.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+val hasReleaseKeystore = keystoreProperties.getProperty("storeFile") != null
+
 android {
     namespace = "com.sentinel.app"
     compileSdk = flutter.compileSdkVersion
@@ -50,11 +65,28 @@ android {
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile")!!)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Con android/key.properties presente, firma con la clave de
+            // release real; si no, cae al debug keystore (comportamiento
+            // de siempre) — ver el comentario sobre `keystoreProperties`
+            // arriba.
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

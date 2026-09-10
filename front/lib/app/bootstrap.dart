@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 import '../core/auth/session_store.dart';
 import '../core/config/app_config.dart';
@@ -27,6 +28,13 @@ import 'app.dart';
 /// `runApp` instead of building a fresh one.
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Sin esto, Flutter Web usa rutas con `#` (`/#/share/<token>`) — el
+  // link público quedaría compartible igual, pero nunca matcheable por un
+  // intent-filter de Android App Links (la parte después de `#` nunca
+  // llega a la lógica de matching de `<data>`, solo al navegador). No-op
+  // fuera de Web.
+  usePathUrlStrategy();
 
   FlutterError.onError = (details) {
     AppLogger.error(

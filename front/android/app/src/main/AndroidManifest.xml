@@ -79,6 +79,25 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Android App Links — el link público de compartir ubicación
+                 (`_ShareLink` en emergency_share_page.dart) abre la app
+                 instalada en vez del navegador. `autoVerify="true"` exige
+                 que https://sentinel-orcin-eight.vercel.app/.well-known/
+                 assetlinks.json (front/web/.well-known/assetlinks.json)
+                 liste el SHA-256 de la clave de firma de este APK — ver
+                 docs/deep_linking.md para el paso a paso completo y cómo
+                 verificarlo. Sin ese archivo (o si no matchea), Android
+                 simplemente no verifica el dominio y el link sigue
+                 abriendo en el navegador, como hoy — no hay downside. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="sentinel-orcin-eight.vercel.app"
+                    android:pathPrefix="/share/"/>
+            </intent-filter>
         </activity>
         <!-- Fase 6 — keeps sharing this rider's position for an active ride
              session while the app is backgrounded or the screen is off.
