@@ -1,12 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/logging/app_logger.dart';
-import '../../core/network/api_client.dart';
-import 'data/datasources/accident_event_remote_datasource.dart';
+import '../../app/router.dart';
 import 'data/datasources/local_accident_alert_notifier.dart';
-import 'data/repositories/accident_event_repository_impl.dart';
 
 /// Wires up "Estoy bien" notification-tap handling for the **main UI**
 /// engine — called once from `bootstrap()`. See
@@ -25,42 +20,25 @@ import 'data/repositories/accident_event_repository_impl.dart';
 /// has a callback to invoke at all (required by the plugin's `initialize`
 /// call), not because it expects to receive the response.
 ///
-/// This handler is deliberately self-contained: it only calls
-/// `AccidentEventRepository.cancel(id)` directly against `back/`, never
-/// anything on `RideBackgroundService`'s in-memory countdown state — this
-/// engine has no reference to that other isolate. If the background
-/// engine's own countdown timer fires *after* this already resolved the
-/// row, its `confirm()` call becomes a harmless no-op: `back/`'s
-/// `accident.service.ts` only applies a status update while the row is
-/// still `candidate` (the same invariant RLS used to enforce), so a stale
-/// confirm silently matches zero rows instead of overwriting the
-/// cancellation.
-///
-/// Takes the app's [ProviderContainer] (built in `bootstrap()`, before
-/// `runApp`) rather than a `Ref` — this runs before there's a widget tree,
-/// so it reads [apiClientProvider] straight off the container instead.
+/// Pedido explícito en vivo, tras confirmar que el tap en sí ya llegaba:
+/// en vez de resolver el evento en silencio desde acá (sin ninguna
+/// pantalla propia, sin forma de pedir ayuda en vez de solo cancelar),
+/// esto ahora **navega** a [AccidentConfirmationPage] — que es la que de
+/// verdad llama a `cancel()`/`confirm()`, con las dos opciones separadas
+/// ("Sí, estoy bien" / "Necesito ayuda") y su propia confirmación visual.
+/// `goRouterProvider` es `keepAlive`, así que `container.read(...)` da la
+/// misma instancia de `GoRouter` que `runApp()` termina usando — llamar
+/// `.push(...)` acá funciona sin importar si `runApp()` ya corrió o no
+/// (el estado de ubicación de go_router es independiente del árbol de
+/// widgets; el `Navigator` lo sincroniza apenas se monta).
 Future<void> initializeAccidentAlertResponseHandling(
   ProviderContainer container,
 ) async {
-  final apiClient = container.read(apiClientProvider);
-  final repository = AccidentEventRepositoryImpl(
-    HttpAccidentEventRemoteDataSource(apiClient),
-  );
-
   await LocalAccidentAlertNotifier().initialize(
     onConfirmedOk: (accidentEventId) {
-      unawaited(
-        repository.cancel(accidentEventId).catchError((
-          Object error,
-          StackTrace stackTrace,
-        ) {
-          AppLogger.error(
-            'No se pudo cancelar el evento de accidente desde la notificación',
-            error: error,
-            stackTrace: stackTrace,
-          );
-        }),
-      );
+      container
+          .read(goRouterProvider)
+          .push(AppRoutes.accidentConfirmPath(accidentEventId));
     },
   );
 }

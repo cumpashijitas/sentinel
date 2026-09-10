@@ -74,15 +74,39 @@ class EmergencyShareTrackingController
 
   Future<void> start(String shareId) async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final tracker = ref.read(emergencyLocationTrackerProvider);
-      final granted = await tracker.ensurePermission();
-      if (!granted) {
-        throw StateError(
-          'Sentinel necesita permiso de ubicación para compartir tu posición.',
-        );
-      }
 
+    // Bug real encontrado en vivo ("Cannot use the Ref of
+    // emergencyShareTrackingControllerProvider after it has been
+    // disposed"): `ensurePermission()` espera a que el usuario responda el
+    // diálogo del sistema — si en ese rato deja esta pantalla (o algo hace
+    // que nada siga mirando este provider `autoDispose`), Riverpod lo tira
+    // abajo, y seguir usando `ref`/`state` después de ese punto revienta.
+    // El propio mensaje de error de Riverpod recomienda exactamente esto:
+    // revisar `ref.mounted` después de cada `await` antes de volver a
+    // tocar `ref` — por eso ya no se puede seguir usando un
+    // `AsyncValue.guard` de una sola pieza, que toca `state` recién al
+    // final sin chequear nada en el medio.
+    final tracker = ref.read(emergencyLocationTrackerProvider);
+    bool granted;
+    try {
+      granted = await tracker.ensurePermission();
+    } catch (error, stackTrace) {
+      if (ref.mounted) state = AsyncValue.error(error, stackTrace);
+      return;
+    }
+    if (!ref.mounted) return;
+
+    if (!granted) {
+      state = AsyncValue.error(
+        StateError(
+          'Sentinel necesita permiso de ubicación para compartir tu posición.',
+        ),
+        StackTrace.current,
+      );
+      return;
+    }
+
+    try {
       await _subscription?.cancel();
       final repository = ref.read(emergencyShareRepositoryProvider);
       _subscription = tracker.watchPosition().listen((fix) {
@@ -99,7 +123,10 @@ class EmergencyShareTrackingController
               }),
         );
       });
-    });
+      if (ref.mounted) state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      if (ref.mounted) state = AsyncValue.error(error, stackTrace);
+    }
   }
 
   Future<void> stop() async {
@@ -119,23 +146,53 @@ class EmergencyShareActionsController
   @override
   FutureOr<void> build() {}
 
+  // Mismo riesgo que `EmergencyShareTrackingController.start()` (ver su
+  // comentario): cada `await` de acá abajo es un hueco donde esta pantalla
+  // puede dejar de existir y este provider `autoDispose` se cae solo —
+  // seguir tocando `ref`/`state` después de eso es lo que revienta con
+  // "Cannot use the Ref ... after it has been disposed".
   Future<void> start() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final share = await ref.read(emergencyShareRepositoryProvider).startShare();
+
+    final EmergencyShare share;
+    try {
+      share = await ref.read(emergencyShareRepositoryProvider).startShare();
+    } catch (error, stackTrace) {
+      if (ref.mounted) state = AsyncValue.error(error, stackTrace);
+      return;
+    }
+    if (!ref.mounted) return;
+
+    try {
       await ref
           .read(emergencyShareTrackingControllerProvider.notifier)
           .start(share.id);
+      if (!ref.mounted) return;
       ref.invalidate(activeShareProvider);
-    });
+      state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      if (ref.mounted) state = AsyncValue.error(error, stackTrace);
+    }
   }
 
   Future<void> stop() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+
+    try {
       await ref.read(emergencyShareTrackingControllerProvider.notifier).stop();
+    } catch (error, stackTrace) {
+      if (ref.mounted) state = AsyncValue.error(error, stackTrace);
+      return;
+    }
+    if (!ref.mounted) return;
+
+    try {
       await ref.read(emergencyShareRepositoryProvider).stopShare();
+      if (!ref.mounted) return;
       ref.invalidate(activeShareProvider);
-    });
+      state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      if (ref.mounted) state = AsyncValue.error(error, stackTrace);
+    }
   }
 }

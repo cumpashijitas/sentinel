@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../features/accidents/presentation/pages/accident_confirmation_page.dart';
 import '../features/auth/presentation/controllers/auth_controller.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/register_page.dart';
@@ -38,6 +39,7 @@ abstract final class AppRoutes {
   static const vehicles = '/vehicles';
   static const history = '/history';
   static const accidentDetail = '/accidents/:id';
+  static const accidentConfirm = '/accidents/:id/confirm';
 
   /// El link público que un rider comparte por WhatsApp/SMS — **sin
   /// login**, ver el `redirect` de abajo. No lleva `AppRoutes.` en el
@@ -49,6 +51,7 @@ abstract final class AppRoutes {
   static String rideDetailPath(String id) => '/rides/$id';
   static String rideMapPath(String id) => '/rides/$id/map';
   static String accidentDetailPath(String id) => '/accidents/$id';
+  static String accidentConfirmPath(String id) => '/accidents/$id/confirm';
   static String publicSharePath(String token) => '/share/$token';
 }
 
@@ -171,6 +174,15 @@ GoRouter goRouter(Ref ref) {
         path: AppRoutes.accidentDetail,
         builder: (context, state) =>
             AccidentDetailPage(accidentId: state.pathParameters['id']!),
+      ),
+      // Alcanzada solo al tocar el aviso de "¿estás bien?" — nunca por
+      // navegación normal (no aparece en ningún menú). Ver
+      // accident_alert_response.dart.
+      GoRoute(
+        path: AppRoutes.accidentConfirm,
+        builder: (context, state) => AccidentConfirmationPage(
+          accidentEventId: state.pathParameters['id']!,
+        ),
       ),
     ],
   );
