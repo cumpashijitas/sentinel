@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -13,10 +15,13 @@ import '../features/accidents/data/repositories/accident_event_repository_impl.d
 import '../features/accidents/data/repositories/accident_monitor_service_impl.dart';
 import '../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../features/auth/data/repositories/auth_repository_impl.dart';
+import '../features/emergency_shares/data/datasources/emergency_share_remote_datasource.dart';
+import '../features/emergency_shares/data/repositories/emergency_share_repository_impl.dart';
 import '../features/rides/data/datasources/geolocator_location_tracker.dart';
 import '../features/rides/data/datasources/live_location_remote_datasource.dart';
 import '../features/rides/data/repositories/live_location_repository_impl.dart';
 import '../features/rides/data/repositories/location_repository_impl.dart';
+import '../features/rides/domain/repositories/background_location_service.dart';
 
 /// Entry point for `RideBackgroundService`'s own `FlutterEngine`
 /// (`android/app/src/main/kotlin/com/sentinel/app/RideBackgroundService.kt`)
@@ -32,15 +37,25 @@ import '../features/rides/data/repositories/location_repository_impl.dart';
 ///
 /// Deliberately reuses the *exact* Fase 5 domain/data classes
 /// (`LocationRepositoryImpl`, `GeolocatorLocationTracker`,
-/// `LiveLocationRepositoryImpl`) instead of a background-specific
-/// reimplementation — the tracking/sampling *logic* doesn't change based on
-/// who's driving it, only how the caller reaches it (Riverpod providers
-/// for the UI path vs. this hand-wired bootstrap here, since there is no
-/// widget tree — and therefore no `ProviderScope` — in a headless engine).
-/// Since the front holds no Supabase credential (see docs/architecture.md),
-/// this engine talks to `back/` over HTTP/WebSocket exactly like the UI
-/// engine does — `SessionStore`/`ApiClient` are hand-constructed here
-/// instead of read via `ref.watch`, for the same "no ProviderScope" reason.
+/// `LiveLocationRepositoryImpl`, `EmergencyShareRepositoryImpl`) instead of
+/// a background-specific reimplementation — the tracking/sampling *logic*
+/// doesn't change based on who's driving it, only how the caller reaches
+/// it (Riverpod providers for the UI path vs. this hand-wired bootstrap
+/// here, since there is no widget tree — and therefore no `ProviderScope`
+/// — in a headless engine). Since the front holds no Supabase credential
+/// (see docs/architecture.md), this engine talks to `back/` over
+/// HTTP/WebSocket exactly like the UI engine does — `SessionStore`/
+/// `ApiClient` are hand-constructed here instead of read via `ref.watch`,
+/// for the same "no ProviderScope" reason.
+///
+/// Pedido explícito en vivo: "compartir ubicación" fuera de un grupo (la
+/// forma de facto de hacer un 'viaje individual' hoy) no pasaba por este
+/// servicio en absoluto — ni la ubicación ni la detección de accidentes
+/// le sobrevivían a la pantalla apagada, a diferencia de un viaje de
+/// grupo. `args` ahora trae `[kind, trackingId]` (antes solo
+/// `[sessionId]`) — `kind` decide cuál de las dos ramas de abajo
+/// bootstrapear; ambas terminan encendiendo la detección de accidentes
+/// igual, la única diferencia real es a qué tabla escribe la ubicación.
 @pragma('vm:entry-point')
 Future<void> rideBackgroundMain(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,13 +68,22 @@ Future<void> rideBackgroundMain(List<String> args) async {
     );
   };
 
-  final sessionId = args.isNotEmpty ? args.first : null;
-  if (sessionId == null || sessionId.isEmpty) {
+  if (args.length < 2) {
     AppLogger.error(
-      'rideBackgroundMain started without a sessionId argument — nothing to share.',
+      'rideBackgroundMain started without [kind, trackingId] — nothing to share.',
     );
     return;
   }
+  final kindArg = args[0];
+  final trackingId = args[1];
+  if (trackingId.isEmpty) {
+    AppLogger.error('rideBackgroundMain: trackingId vacío — nada que compartir.');
+    return;
+  }
+  final kind = BackgroundTrackingKind.values.firstWhere(
+    (k) => k.wireValue == kindArg,
+    orElse: () => BackgroundTrackingKind.ride,
+  );
 
   final AppConfig config;
   try {
@@ -93,23 +117,43 @@ Future<void> rideBackgroundMain(List<String> args) async {
 
   final apiClient = ApiClient(baseUrl: config.apiBaseUrl, sessionStore: sessionStore);
 
-  final locationRepository = LocationRepositoryImpl(
-    tracker: const GeolocatorLocationTracker(),
-    liveLocationRepository: LiveLocationRepositoryImpl(
-      HttpLiveLocationRemoteDataSource(apiClient),
-    ),
-    authRepository: authRepository,
-  );
+  // El `sessionId` que la detección de accidentes reporta junto al
+  // candidato — `null` para un share personal (no hay ride_session), tal
+  // como `reportCandidate`/`accident_events.session_id` ya lo permiten.
+  String? accidentSessionId;
 
-  try {
-    await locationRepository.startSharing(sessionId);
-  } catch (error, stackTrace) {
-    AppLogger.error(
-      'RideBackgroundService: startSharing falló',
-      error: error,
-      stackTrace: stackTrace,
-    );
-    return;
+  switch (kind) {
+    case BackgroundTrackingKind.ride:
+      final locationRepository = LocationRepositoryImpl(
+        tracker: const GeolocatorLocationTracker(),
+        liveLocationRepository: LiveLocationRepositoryImpl(
+          HttpLiveLocationRemoteDataSource(apiClient),
+        ),
+        authRepository: authRepository,
+      );
+      try {
+        await locationRepository.startSharing(trackingId);
+        accidentSessionId = trackingId;
+      } catch (error, stackTrace) {
+        AppLogger.error(
+          'RideBackgroundService: startSharing (ride) falló',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return;
+      }
+
+    case BackgroundTrackingKind.share:
+      try {
+        await _startEmergencyShareTracking(trackingId, apiClient);
+      } catch (error, stackTrace) {
+        AppLogger.error(
+          'RideBackgroundService: startSharing (share) falló',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return;
+      }
   }
 
   // Fase 7: accident detection runs alongside location sharing, in this
@@ -126,7 +170,7 @@ Future<void> rideBackgroundMain(List<String> args) async {
       alertNotifier: LocalAccidentAlertNotifier(),
       authRepository: authRepository,
     );
-    await accidentMonitor.start(sessionId);
+    await accidentMonitor.start(accidentSessionId);
   } catch (error, stackTrace) {
     AppLogger.error(
       'RideBackgroundService: no se pudo iniciar la detección de accidentes',
@@ -145,6 +189,45 @@ Future<void> rideBackgroundMain(List<String> args) async {
   // this FlutterEngine), not something this entrypoint listens for — see
   // the comment on `BackgroundLocationService.stop()`.
   AppLogger.info(
-    'RideBackgroundService: compartiendo ubicación de la sesión $sessionId',
+    'RideBackgroundService: compartiendo ($kind) $trackingId',
   );
+}
+
+/// Mismo trabajo que `LocationRepositoryImpl.startSharing` (mirar el
+/// dispositivo, mandar cada fix), pero para `emergency_shares` en vez de
+/// `ride_sessions`/`live_locations` — no hay `location_history` para un
+/// share personal, así que no hace falta `LocationSamplingPolicy` acá.
+/// Vive como función suelta, no como una clase nueva en `data/`, porque
+/// es literalmente el mismo cuerpo que ya tenía
+/// `EmergencyShareTrackingController.start()` en el motor de UI — cuando
+/// ese controlador delega a este servicio en Android (ver su propio
+/// comentario), esta es la única copia real de esa lógica.
+Future<void> _startEmergencyShareTracking(
+  String shareId,
+  ApiClient apiClient,
+) async {
+  const tracker = GeolocatorLocationTracker();
+  final granted = await tracker.ensurePermission();
+  if (!granted) {
+    throw const DataException(
+      'Sentinel necesita permiso de ubicación para compartir tu posición.',
+    );
+  }
+
+  final repository = EmergencyShareRepositoryImpl(
+    HttpEmergencyShareRemoteDataSource(apiClient),
+  );
+  tracker.watchPosition().listen((fix) {
+    unawaited(
+      repository
+          .upsertMyLocation(shareId: shareId, fix: fix)
+          .catchError((Object error, StackTrace stackTrace) {
+            AppLogger.error(
+              'RideBackgroundService: failed to upsert emergency share location',
+              error: error,
+              stackTrace: stackTrace,
+            );
+          }),
+    );
+  });
 }

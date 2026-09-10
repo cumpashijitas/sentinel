@@ -6,7 +6,10 @@ import 'package:sentinel_v2/features/emergency_shares/domain/entities/emergency_
 import 'package:sentinel_v2/features/emergency_shares/domain/repositories/emergency_share_repository.dart';
 import 'package:sentinel_v2/features/emergency_shares/presentation/controllers/emergency_share_providers.dart';
 import 'package:sentinel_v2/features/rides/domain/entities/location_fix.dart';
+import 'package:sentinel_v2/features/rides/domain/repositories/background_location_service.dart';
 import 'package:sentinel_v2/features/rides/domain/repositories/location_tracker.dart';
+import 'package:sentinel_v2/features/rides/presentation/controllers/live_tracking_controller.dart'
+    show backgroundLocationServiceProvider;
 
 /// `ensurePermission()` resolves whenever the test tells it to — this is
 /// what lets the test simulate the real-world race: the user leaves the
@@ -25,6 +28,42 @@ class _FakeLocationTracker implements LocationTracker {
 
   @override
   Future<LocationFix?> getCurrentFix() async => null;
+}
+
+class _AlwaysGrantedLocationTracker implements LocationTracker {
+  @override
+  Future<bool> ensurePermission() async => true;
+
+  @override
+  Future<bool> ensureBackgroundPermission() async => true;
+
+  @override
+  Stream<LocationFix> watchPosition() => const Stream.empty();
+
+  @override
+  Future<LocationFix?> getCurrentFix() async => null;
+}
+
+class _FakeBackgroundLocationService implements BackgroundLocationService {
+  bool running = false;
+  String? lastTrackingId;
+  BackgroundTrackingKind? lastKind;
+
+  @override
+  Future<void> start({
+    required String trackingId,
+    required BackgroundTrackingKind kind,
+  }) async {
+    lastTrackingId = trackingId;
+    lastKind = kind;
+    running = true;
+  }
+
+  @override
+  Future<void> stop() async => running = false;
+
+  @override
+  Future<bool> isRunning() async => running;
 }
 
 class _FakeEmergencyShareRepository implements EmergencyShareRepository {
@@ -90,6 +129,49 @@ void main() {
         tracker.permissionCompleter.complete(true);
 
         await expectLater(future, completes);
+      },
+    );
+
+    test(
+      // Pedido explícito en vivo: "compartir ubicación" fuera de un grupo
+      // debería sobrevivir la pantalla apagada igual que un viaje de
+      // grupo — para eso, en Android, tiene que delegar al mismo servicio
+      // en segundo plano (generalizado con `BackgroundTrackingKind.share`)
+      // en vez de mirar el GPS solo en el motor de la UI. `flutter test`
+      // corre con `TargetPlatform.android` por defecto, así que este test
+      // no necesita ningún override de plataforma.
+      'on Android, start() delegates to BackgroundLocationService with '
+      'kind.share instead of watching the GPS locally',
+      () async {
+        final backgroundService = _FakeBackgroundLocationService();
+        final container = ProviderContainer(
+          overrides: [
+            emergencyLocationTrackerProvider.overrideWithValue(
+              _AlwaysGrantedLocationTracker(),
+            ),
+            emergencyShareRepositoryProvider.overrideWithValue(
+              _FakeEmergencyShareRepository(),
+            ),
+            backgroundLocationServiceProvider.overrideWithValue(
+              backgroundService,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(emergencyShareTrackingControllerProvider.notifier)
+            .start('share1');
+
+        expect(backgroundService.running, isTrue);
+        expect(backgroundService.lastTrackingId, 'share1');
+        expect(backgroundService.lastKind, BackgroundTrackingKind.share);
+
+        await container
+            .read(emergencyShareTrackingControllerProvider.notifier)
+            .stop();
+
+        expect(backgroundService.running, isFalse);
       },
     );
   });

@@ -59,12 +59,14 @@ class RideBackgroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val sessionId = intent?.getStringExtra(EXTRA_SESSION_ID)
-        if (sessionId.isNullOrEmpty()) {
+        val trackingId = intent?.getStringExtra(EXTRA_TRACKING_ID)
+        val kind = intent?.getStringExtra(EXTRA_KIND)
+        if (trackingId.isNullOrEmpty() || kind.isNullOrEmpty()) {
             // Nothing to share — most likely the OS restarting this
             // service after the process was killed (see the START_STICKY
-            // note below): there is no persisted sessionId to resume with
-            // yet, so there is nothing useful this restart can do.
+            // note below): there is no persisted trackingId/kind to
+            // resume with yet, so there is nothing useful this restart
+            // can do.
             stopSelf()
             return START_NOT_STICKY
         }
@@ -83,7 +85,7 @@ class RideBackgroundService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
-        startBackgroundEngine(sessionId)
+        startBackgroundEngine(kind, trackingId)
         isRunning = true
 
         // START_STICKY: if the OS kills this process under memory
@@ -99,9 +101,9 @@ class RideBackgroundService : Service() {
         return START_STICKY
     }
 
-    private fun startBackgroundEngine(sessionId: String) {
+    private fun startBackgroundEngine(kind: String, trackingId: String) {
         // Replace any previous engine instead of stacking a second one —
-        // e.g. the app called start() again for a different session
+        // e.g. the app called start() again for a different session/share
         // without stopping the first.
         engine?.destroy()
 
@@ -117,10 +119,13 @@ class RideBackgroundService : Service() {
             "package:sentinel_v2/background/ride_background_main.dart",
             "rideBackgroundMain",
         )
-        // sessionId travels as a Dart entrypoint argument, not a
-        // MethodChannel call — rideBackgroundMain reads it straight out of
-        // `args`, no round trip needed once the engine is up.
-        newEngine.dartExecutor.executeDartEntrypoint(entrypoint, listOf(sessionId))
+        // kind/trackingId travel as Dart entrypoint arguments, not a
+        // MethodChannel call — rideBackgroundMain reads them straight out
+        // of `args` ([kind, trackingId]), no round trip needed once the
+        // engine is up. `kind` decides whether it bootstraps a ride
+        // session (group) or an emergency share (solo) — see
+        // BackgroundTrackingKind on the Dart side.
+        newEngine.dartExecutor.executeDartEntrypoint(entrypoint, listOf(kind, trackingId))
         engine = newEngine
     }
 
@@ -181,7 +186,8 @@ class RideBackgroundService : Service() {
     }
 
     companion object {
-        const val EXTRA_SESSION_ID = "sessionId"
+        const val EXTRA_TRACKING_ID = "trackingId"
+        const val EXTRA_KIND = "kind"
         private const val CHANNEL_ID = "ride_background_service"
         private const val NOTIFICATION_ID = 4001
 

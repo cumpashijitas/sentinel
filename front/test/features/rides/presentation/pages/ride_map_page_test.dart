@@ -106,7 +106,10 @@ class _FakeBackgroundLocationService implements BackgroundLocationService {
   bool _running = false;
 
   @override
-  Future<void> start(String sessionId) async => _running = true;
+  Future<void> start({
+    required String trackingId,
+    required BackgroundTrackingKind kind,
+  }) async => _running = true;
 
   @override
   Future<void> stop() async => _running = false;

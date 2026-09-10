@@ -82,10 +82,13 @@ class _FakeBackgroundLocationService implements BackgroundLocationService {
   String? lastStartedSessionId;
 
   @override
-  Future<void> start(String sessionId) async {
+  Future<void> start({
+    required String trackingId,
+    required BackgroundTrackingKind kind,
+  }) async {
     final error = errorToThrow;
     if (error != null) throw error;
-    lastStartedSessionId = sessionId;
+    lastStartedSessionId = trackingId;
     _running = true;
   }
 

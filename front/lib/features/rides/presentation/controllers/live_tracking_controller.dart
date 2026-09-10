@@ -182,7 +182,12 @@ class LiveTrackingController extends _$LiveTrackingController {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
       () => PlatformCapabilities.isAndroid
-          ? ref.read(backgroundLocationServiceProvider).start(sessionId)
+          ? ref
+                .read(backgroundLocationServiceProvider)
+                .start(
+                  trackingId: sessionId,
+                  kind: BackgroundTrackingKind.ride,
+                )
           : ref.read(locationRepositoryProvider).startSharing(sessionId),
     );
   }

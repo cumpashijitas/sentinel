@@ -4,9 +4,13 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../../core/logging/app_logger.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/platform/platform_capabilities.dart';
 import '../../../rides/data/datasources/geolocator_location_tracker.dart';
 import '../../../rides/domain/entities/location_fix.dart';
+import '../../../rides/domain/repositories/background_location_service.dart';
 import '../../../rides/domain/repositories/location_tracker.dart';
+import '../../../rides/presentation/controllers/live_tracking_controller.dart'
+    show backgroundLocationServiceProvider;
 import '../../data/datasources/emergency_share_remote_datasource.dart';
 import '../../data/repositories/emergency_share_repository_impl.dart';
 import '../../domain/entities/emergency_share.dart';
@@ -108,21 +112,42 @@ class EmergencyShareTrackingController
 
     try {
       await _subscription?.cancel();
-      final repository = ref.read(emergencyShareRepositoryProvider);
-      _subscription = tracker.watchPosition().listen((fix) {
-        if (!_fixController.isClosed) _fixController.add(fix);
-        unawaited(
-          repository
-              .upsertMyLocation(shareId: shareId, fix: fix)
-              .catchError((Object error, StackTrace stackTrace) {
-                AppLogger.error(
-                  'Failed to upsert emergency share location',
-                  error: error,
-                  stackTrace: stackTrace,
-                );
-              }),
-        );
-      });
+
+      // Pedido explícito en vivo: "compartir ubicación" fuera de un grupo
+      // no le sobrevivía a la pantalla apagada — a diferencia de un viaje
+      // de grupo, nunca pasaba por el servicio en segundo plano
+      // (`RideBackgroundService`, generalizado para aceptar esto además
+      // de viajes de grupo — ver `BackgroundTrackingKind`). En Android, el
+      // que de verdad escribe la ubicación ahora es ese servicio — lo que
+      // se mira acá abajo (`tracker.watchPosition()`) es *solo* para
+      // alimentar el mapa de vista previa de esta pantalla mientras está
+      // abierta, nunca para mandar nada por su cuenta (evita escribir la
+      // misma ubicación dos veces, una desde cada motor).
+      if (PlatformCapabilities.isAndroid) {
+        await ref
+            .read(backgroundLocationServiceProvider)
+            .start(trackingId: shareId, kind: BackgroundTrackingKind.share);
+        if (!ref.mounted) return;
+        _subscription = tracker.watchPosition().listen((fix) {
+          if (!_fixController.isClosed) _fixController.add(fix);
+        });
+      } else {
+        final repository = ref.read(emergencyShareRepositoryProvider);
+        _subscription = tracker.watchPosition().listen((fix) {
+          if (!_fixController.isClosed) _fixController.add(fix);
+          unawaited(
+            repository
+                .upsertMyLocation(shareId: shareId, fix: fix)
+                .catchError((Object error, StackTrace stackTrace) {
+                  AppLogger.error(
+                    'Failed to upsert emergency share location',
+                    error: error,
+                    stackTrace: stackTrace,
+                  );
+                }),
+          );
+        });
+      }
       if (ref.mounted) state = const AsyncData(null);
     } catch (error, stackTrace) {
       if (ref.mounted) state = AsyncValue.error(error, stackTrace);
@@ -132,7 +157,11 @@ class EmergencyShareTrackingController
   Future<void> stop() async {
     await _subscription?.cancel();
     _subscription = null;
-    state = const AsyncData(null);
+    if (!ref.mounted) return;
+    if (PlatformCapabilities.isAndroid) {
+      await ref.read(backgroundLocationServiceProvider).stop();
+    }
+    if (ref.mounted) state = const AsyncData(null);
   }
 }
 

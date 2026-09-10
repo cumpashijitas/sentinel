@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sentinel_v2/core/errors/app_exception.dart';
 import 'package:sentinel_v2/features/rides/data/datasources/android_background_location_service.dart';
 import 'package:sentinel_v2/features/rides/domain/entities/location_fix.dart';
+import 'package:sentinel_v2/features/rides/domain/repositories/background_location_service.dart';
 import 'package:sentinel_v2/features/rides/domain/repositories/location_tracker.dart';
 
 class _FakeLocationTracker implements LocationTracker {
@@ -44,18 +45,21 @@ void main() {
   });
 
   group('AndroidBackgroundLocationService', () {
-    test('start() sends the sessionId to the native channel', () async {
+    test('start() sends the trackingId/kind to the native channel', () async {
       final tracker = _FakeLocationTracker();
       final service = AndroidBackgroundLocationService(
         tracker: tracker,
         channel: channel,
       );
 
-      await service.start('s1');
+      await service.start(
+        trackingId: 's1',
+        kind: BackgroundTrackingKind.ride,
+      );
 
       expect(calls, hasLength(1));
       expect(calls.single.method, 'start');
-      expect(calls.single.arguments, {'sessionId': 's1'});
+      expect(calls.single.arguments, {'trackingId': 's1', 'kind': 'ride'});
     });
 
     test('start() throws without reaching the channel when permission is denied', () async {
@@ -65,7 +69,10 @@ void main() {
         channel: channel,
       );
 
-      await expectLater(service.start('s1'), throwsA(isA<DataException>()));
+      await expectLater(
+        service.start(trackingId: 's1', kind: BackgroundTrackingKind.ride),
+        throwsA(isA<DataException>()),
+      );
       expect(calls, isEmpty);
     });
 
@@ -79,7 +86,10 @@ void main() {
           channel: channel,
         );
 
-        await expectLater(service.start('s1'), throwsA(isA<DataException>()));
+        await expectLater(
+          service.start(trackingId: 's1', kind: BackgroundTrackingKind.ride),
+          throwsA(isA<DataException>()),
+        );
       },
     );
 

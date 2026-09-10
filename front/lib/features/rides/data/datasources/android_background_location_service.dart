@@ -25,7 +25,10 @@ class AndroidBackgroundLocationService implements BackgroundLocationService {
   final MethodChannel _channel;
 
   @override
-  Future<void> start(String sessionId) async {
+  Future<void> start({
+    required String trackingId,
+    required BackgroundTrackingKind kind,
+  }) async {
     PlatformCapabilities.requireAndroid('BackgroundLocationService.start');
 
     // Bug real encontrado en vivo: este chequeo pedía antes
@@ -66,7 +69,10 @@ class AndroidBackgroundLocationService implements BackgroundLocationService {
     }
 
     try {
-      await _channel.invokeMethod<void>('start', {'sessionId': sessionId});
+      await _channel.invokeMethod<void>('start', {
+        'trackingId': trackingId,
+        'kind': kind.wireValue,
+      });
     } on PlatformException catch (error) {
       throw DataException(_messageFor(error), cause: error);
     }

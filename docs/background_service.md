@@ -1,10 +1,20 @@
 # Sentinel V2 — servicio en background de Android (Fase 6)
 
-Cómo sigue compartiéndose la ubicación de un viaje cuando Sentinel deja de
-estar en primer plano en Android. Para el flujo de ubicación en sí
-(muestreo, estados de los integrantes, Realtime), ver
+Cómo sigue compartiéndose la ubicación cuando Sentinel deja de estar en
+primer plano en Android. Para el flujo de ubicación en sí (muestreo,
+estados de los integrantes, Realtime), ver
 [docs/realtime.md](realtime.md); para la arquitectura de capas general,
 [docs/architecture.md](architecture.md).
+
+**Generalizado (pedido en vivo) para cubrir dos casos, no solo uno**: un
+viaje de grupo (`ride_sessions`/`live_locations`) y un share personal
+fuera de grupo (`emergency_shares`/`emergency_share_locations`) — antes
+"compartir ubicación" suelto no pasaba por este servicio en absoluto, ni
+la ubicación ni la detección de accidentes le sobrevivían a la pantalla
+apagada, a diferencia de un viaje de grupo. `BackgroundTrackingKind`
+(`ride` | `share`) es lo único que distingue un caso del otro de acá en
+adelante — un solo `Service`/`FlutterEngine` nativo, no dos casi
+idénticos.
 
 ## Decisión: Service nativo, no `geolocator.foregroundNotificationConfig`
 
@@ -44,25 +54,29 @@ dependencias, control total sobre el ciclo de vida).
 
 ```mermaid
 sequenceDiagram
-  participant UI as RideMapPage (engine UI)
-  participant Ctl as LiveTrackingController
+  participant UI as RideMapPage / EmergencySharePage (engine UI)
+  participant Ctl as LiveTrackingController / EmergencyShareTrackingController
   participant Chan as AndroidBackgroundLocationService (MethodChannel)
   participant Act as MainActivity.kt
   participant Svc as RideBackgroundService.kt
   participant BG as rideBackgroundMain (2do FlutterEngine)
 
-  UI->>Ctl: start(sessionId)
+  UI->>Ctl: start(trackingId, kind: ride|share)
   Note over Ctl: PlatformCapabilities.isAndroid ? ...
-  Ctl->>Chan: start(sessionId)
-  Chan->>Chan: tracker.ensureBackgroundPermission()<br/>(LocationPermission.always)
+  Ctl->>Chan: start(trackingId, kind)
+  Chan->>Chan: tracker.ensurePermission()<br/>("while in use" — ver nota abajo)
   Chan->>Chan: Permission.notification.request()<br/>(best-effort)
-  Chan->>Act: invokeMethod("start", {sessionId})
-  Act->>Act: verifica ACCESS_BACKGROUND_LOCATION<br/>(defensivo)
-  Act->>Svc: startForegroundService(Intent + sessionId)
+  Chan->>Act: invokeMethod("start", {trackingId, kind})
+  Act->>Act: verifica ACCESS_FINE/COARSE_LOCATION<br/>(defensivo)
+  Act->>Svc: startForegroundService(Intent + trackingId + kind)
   Svc->>Svc: startForeground() — notificación persistente
-  Svc->>BG: executeDartEntrypoint(rideBackgroundMain, [sessionId])
-  BG->>BG: Supabase.initialize() (misma sesión persistida)
-  BG->>BG: LocationRepositoryImpl(...).startSharing(sessionId)
+  Svc->>BG: executeDartEntrypoint(rideBackgroundMain, [kind, trackingId])
+  alt kind == ride
+    BG->>BG: LocationRepositoryImpl(...).startSharing(trackingId)
+  else kind == share
+    BG->>BG: EmergencyShareRepositoryImpl(...).upsertMyLocation(trackingId, ...)<br/>en cada fix de watchPosition()
+  end
+  BG->>BG: AccidentMonitorServiceImpl(...).start(sessionId: kind==ride ? trackingId : null)
   Note over BG: mismas clases de la Fase 5 —<br/>ninguna lógica de tracking duplicada
 
   UI->>Ctl: stop()
@@ -73,6 +87,16 @@ sequenceDiagram
   Svc->>Svc: notificación removida
 ```
 
+**Nota sobre el permiso** (bug real corregido en vivo, después de escribir
+el diagrama de arriba por primera vez): un foreground service que declara
+`android:foregroundServiceType="location"` está exento de necesitar
+`ACCESS_BACKGROUND_LOCATION` ("todo el tiempo") — Android lo trata como
+"en primer plano" a efectos de ubicación aunque no haya ninguna Activity
+visible, así que alcanza con el permiso normal ("mientras se usa la
+app"). Pedir el permiso "todo el tiempo" (como decía una versión anterior
+de este documento) bloqueaba el compartir para todo usuario real, porque
+ese permiso casi nunca aparece en el diálogo estándar del sistema.
+
 Piezas:
 
 - **`BackgroundLocationService`** (`domain/repositories/`): interfaz que
@@ -82,16 +106,20 @@ Piezas:
   directamente (ver el doc comment de la interfaz).
 - **`AndroidBackgroundLocationService`** (`data/datasources/`): el
   `MethodChannel` (`com.sentinel.app/background_location`). Antes de
-  invocar al canal, pide el permiso de ubicación "todo el tiempo" (ver
-  `LocationTracker.ensureBackgroundPermission`, distinto de
-  `ensurePermission` — una foreground service sin Activity visible no
-  cuenta como "en uso" para el sistema de permisos de Android desde la
-  API 29) y, best-effort, el de notificaciones.
+  invocar al canal, pide el permiso normal de ubicación
+  (`LocationTracker.ensurePermission` — "mientras se usa la app" alcanza,
+  ver la nota sobre el permiso más arriba) y, best-effort, el de
+  notificaciones.
 - **`lib/background/ride_background_main.dart`**: el entrypoint del
   segundo `FlutterEngine`. Reconstruye a mano (sin Riverpod — no hay árbol
   de widgets en un engine headless) exactamente las mismas clases de la
   Fase 5: `GeolocatorLocationTracker`, `LiveLocationRepositoryImpl`,
-  `LocationRepositoryImpl`. **Debe estar importado desde algún archivo
+  `LocationRepositoryImpl` — y, para `kind == share`,
+  `EmergencyShareRepositoryImpl`. Recibe `[kind, trackingId]` como
+  argumentos del entrypoint (antes solo `[sessionId]`) y bifurca según
+  `kind` antes de arrancar la detección de accidentes, siempre — la única
+  diferencia real entre un viaje de grupo y un share personal es a qué
+  tabla escribe la ubicación. **Debe estar importado desde algún archivo
   alcanzable por `main.dart`** (lo está, desde el propio `main.dart`, con
   `// ignore: unused_import`) — si no, el compilador nunca lo incluye en
   el kernel compilado y la búsqueda nativa por URI de librería falla en
@@ -120,7 +148,20 @@ inicializar), `rideBackgroundMain` registra el error y no comparte nada —
 ver deuda técnica sobre la ausencia de una señal de vuelta hacia la UI en
 ese caso.
 
-## Verificación end-to-end (dispositivo real: emulador Pixel 6 API 34)
+## Estado de verificación del camino `kind == share`
+
+La generalización a `BackgroundTrackingKind.share` (compartir ubicación
+personal, fuera de grupo) tiene tests unitarios (delegación correcta a
+`BackgroundLocationService` con `kind.share`, `AccidentMonitorService`
+aceptando `sessionId: null`) y pasó `flutter analyze`/compilación, pero
+**no fue verificada end-to-end en un dispositivo real** como sí lo fue el
+camino `ride` originalmente (sección de abajo) — verificarlo (arrancar un
+share, apagar pantalla, confirmar fila nueva en
+`emergency_share_locations` escrita por el engine de background, y que un
+posible accidente se reporte con `session_id: null`) queda pendiente
+antes de confiar en esto en producción.
+
+## Verificación end-to-end (dispositivo real: emulador Pixel 6 API 34) — camino `ride`
 
 Verificado con comandos reales contra el emulador (`adb`, `uiautomator
 dump` para ubicar elementos con precisión, `dumpsys` para inspeccionar el

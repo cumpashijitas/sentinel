@@ -55,7 +55,7 @@ class AccidentMonitorServiceImpl implements AccidentMonitorService {
   bool _notifierInitialized = false;
 
   @override
-  Future<void> start(String sessionId) async {
+  Future<void> start(String? sessionId) async {
     PlatformCapabilities.requireAndroid('AccidentMonitorService.start');
 
     if (_activeSessionId == sessionId && _motionSubscription != null) {

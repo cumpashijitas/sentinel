@@ -25,9 +25,14 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "start" -> {
-                        val sessionId = call.argument<String>("sessionId")
-                        if (sessionId.isNullOrEmpty()) {
-                            result.error("INVALID_ARGUMENT", "sessionId is required", null)
+                        val trackingId = call.argument<String>("trackingId")
+                        val kind = call.argument<String>("kind")
+                        if (trackingId.isNullOrEmpty() || kind.isNullOrEmpty()) {
+                            result.error(
+                                "INVALID_ARGUMENT",
+                                "trackingId and kind are required",
+                                null,
+                            )
                             return@setMethodCallHandler
                         }
                         if (!hasForegroundLocationPermission()) {
@@ -54,7 +59,8 @@ class MainActivity : FlutterActivity() {
                             return@setMethodCallHandler
                         }
                         val intent = Intent(this, RideBackgroundService::class.java)
-                            .putExtra(RideBackgroundService.EXTRA_SESSION_ID, sessionId)
+                            .putExtra(RideBackgroundService.EXTRA_TRACKING_ID, trackingId)
+                            .putExtra(RideBackgroundService.EXTRA_KIND, kind)
                         ContextCompat.startForegroundService(this, intent)
                         result.success(null)
                     }

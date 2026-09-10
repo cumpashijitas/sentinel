@@ -9,9 +9,12 @@
 /// gyroscope story on Web (`PlatformCapabilities.supportsAccidentDetection`).
 /// Implementations must guard with `PlatformCapabilities.requireAndroid`.
 abstract interface class AccidentMonitorService {
-  /// Starts watching motion for [sessionId]. A no-op if already monitoring
-  /// this same session; switches sessions if a different one was active.
-  Future<void> start(String sessionId);
+  /// Starts watching motion, reporting any candidate against [sessionId]
+  /// — `null` when monitoring runs for a solo "compartir ubicación" share
+  /// rather than a group ride session (`accident_events.session_id` is
+  /// nullable exactly for this). A no-op if already monitoring this same
+  /// session/share; switches if a different one was active.
+  Future<void> start(String? sessionId);
 
   /// Stops watching. If a countdown was in-flight, its candidate is
   /// treated as cancelled (`cancel`, not `confirm`) rather than left
