@@ -9,6 +9,7 @@ import '../../../rides/data/datasources/geolocator_location_tracker.dart';
 import '../../../rides/domain/entities/location_fix.dart';
 import '../../../rides/domain/repositories/background_location_service.dart';
 import '../../../rides/domain/repositories/location_tracker.dart';
+import '../../../rides/domain/services/location_sampling_policy.dart';
 import '../../../rides/presentation/controllers/live_tracking_controller.dart'
     show backgroundLocationServiceProvider;
 import '../../data/datasources/emergency_share_remote_datasource.dart';
@@ -51,14 +52,17 @@ LocationTracker emergencyLocationTracker(Ref ref) =>
 /// Drives the actual GPS push loop while a share is active — separate from
 /// [EmergencyShareActionsController] (which only tracks the start/stop
 /// *action* itself) the same way `LiveTrackingController` is separate from
-/// `RideSessionActionsController` for group rides. No sampling/history
-/// here on purpose: a share only ever needs the *current* position, there's
-/// no `location_history`-equivalent table for it.
+/// `RideSessionActionsController` for group rides. Muestra el mismo
+/// criterio de muestreo que un viaje de grupo (`LocationSamplingPolicy`) al
+/// grabar `emergency_share_location_history` — pedido explícito en vivo
+/// ("viaje individual" con ruta dibujada, igual que un viaje de grupo).
 @riverpod
 class EmergencyShareTrackingController
     extends _$EmergencyShareTrackingController {
   StreamSubscription<LocationFix>? _subscription;
   final _fixController = StreamController<LocationFix>.broadcast();
+  final _samplingPolicy = const LocationSamplingPolicy();
+  LocationFix? _lastRecordedHistoryFix;
 
   /// Every fix this device sends out while sharing — separate from `state`
   /// (which only tracks the start/stop *action*, not a stream of values).
@@ -112,6 +116,7 @@ class EmergencyShareTrackingController
 
     try {
       await _subscription?.cancel();
+      _lastRecordedHistoryFix = null;
 
       // Pedido explícito en vivo: "compartir ubicación" fuera de un grupo
       // no le sobrevivía a la pantalla apagada — a diferencia de un viaje
@@ -146,6 +151,23 @@ class EmergencyShareTrackingController
                   );
                 }),
           );
+          if (_samplingPolicy.shouldRecord(
+            lastRecorded: _lastRecordedHistoryFix,
+            current: fix,
+          )) {
+            _lastRecordedHistoryFix = fix;
+            unawaited(
+              repository
+                  .recordHistory(shareId: shareId, fix: fix)
+                  .catchError((Object error, StackTrace stackTrace) {
+                    AppLogger.error(
+                      'Failed to record emergency share location history',
+                      error: error,
+                      stackTrace: stackTrace,
+                    );
+                  }),
+            );
+          }
         });
       }
       if (ref.mounted) state = const AsyncData(null);
@@ -157,6 +179,7 @@ class EmergencyShareTrackingController
   Future<void> stop() async {
     await _subscription?.cancel();
     _subscription = null;
+    _lastRecordedHistoryFix = null;
     if (!ref.mounted) return;
     if (PlatformCapabilities.isAndroid) {
       await ref.read(backgroundLocationServiceProvider).stop();

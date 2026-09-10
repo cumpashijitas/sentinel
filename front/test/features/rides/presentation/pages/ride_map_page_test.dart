@@ -63,6 +63,7 @@ class _FakeRideSessionRepository implements RideSessionRepository {
 
 class _FakeLiveLocationRepository implements LiveLocationRepository {
   final _controller = StreamController<Map<String, LocationFix>>.broadcast();
+  List<LocationFix> historyToReturn = const [];
 
   void close() => _controller.close();
 
@@ -83,6 +84,10 @@ class _FakeLiveLocationRepository implements LiveLocationRepository {
     required String userId,
     required LocationFix fix,
   }) => throw UnimplementedError();
+
+  @override
+  Future<List<LocationFix>> fetchHistory(String sessionId) async =>
+      historyToReturn;
 }
 
 class _FakeLocationRepository implements LocationRepository {
@@ -125,12 +130,15 @@ class _FakeBackgroundLocationService implements BackgroundLocationService {
 /// ("centers the camera on the device's own position...") checks those.
 class _FakeMapController implements MapController {
   final centeredOn = <MapCoordinate>[];
+  final routesSet = <MapRoute?>[];
 
   @override
   Future<void> setMarkers(List<MapMarker> markers) async {}
 
   @override
-  Future<void> setRoute(MapRoute? route) async {}
+  Future<void> setRoute(MapRoute? route) async {
+    routesSet.add(route);
+  }
 
   @override
   Future<void> moveCamera(MapViewport viewport, {bool animate = true}) async {}
@@ -197,8 +205,10 @@ void main() {
     WidgetTester tester, {
     _FakeMapController? mapController,
     LocationFix? deviceFix,
+    List<LocationFix> historyToReturn = const [],
   }) async {
-    final fakeLiveLocationRepository = _FakeLiveLocationRepository();
+    final fakeLiveLocationRepository = _FakeLiveLocationRepository()
+      ..historyToReturn = historyToReturn;
     addTearDown(fakeLiveLocationRepository.close);
 
     await tester.pumpWidget(
@@ -291,6 +301,49 @@ void main() {
             const MapCoordinate(latitude: -12.05, longitude: -77.03),
           ),
         );
+      },
+    );
+
+    testWidgets(
+      // Strava-style: la ruta recorrida en la sesión debe dibujarse en el
+      // mapa apenas se conoce, sin esperar a que el usuario haga nada.
+      'draws the fetched location history as a route on the map',
+      (tester) async {
+        final mapController = _FakeMapController();
+        await pumpMapPage(
+          tester,
+          mapController: mapController,
+          historyToReturn: [
+            LocationFix(
+              latitude: -12.05,
+              longitude: -77.03,
+              recordedAt: DateTime.utc(2026, 8, 27, 12),
+            ),
+            LocationFix(
+              latitude: -12.06,
+              longitude: -77.04,
+              recordedAt: DateTime.utc(2026, 8, 27, 12, 1),
+            ),
+          ],
+        );
+
+        expect(mapController.routesSet, isNotEmpty);
+        final route = mapController.routesSet.last;
+        expect(route, isNotNull);
+        expect(route!.points, [
+          const MapCoordinate(latitude: -12.05, longitude: -77.03),
+          const MapCoordinate(latitude: -12.06, longitude: -77.04),
+        ]);
+      },
+    );
+
+    testWidgets(
+      'does not call setRoute when there is no location history yet',
+      (tester) async {
+        final mapController = _FakeMapController();
+        await pumpMapPage(tester, mapController: mapController);
+
+        expect(mapController.routesSet, isEmpty);
       },
     );
   });

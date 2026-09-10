@@ -26,6 +26,7 @@ LocationFix _fix() => LocationFix(
 class _FakeLiveLocationRemoteDataSource
     implements LiveLocationRemoteDataSource {
   List<Map<String, dynamic>> currentRowsToReturn = [];
+  List<Map<String, dynamic>> historyRowsToReturn = [];
   final _changesController = StreamController<Map<String, dynamic>>.broadcast();
   Object? errorToThrow;
   Map<String, dynamic>? lastUpsertedFixJson;
@@ -63,6 +64,10 @@ class _FakeLiveLocationRemoteDataSource
     if (error != null) throw error;
     lastRecordedFixJson = fixJson;
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchHistory(String sessionId) async =>
+      historyRowsToReturn;
 }
 
 void main() {

@@ -113,3 +113,12 @@ rideRoutes.post(
     res.status(204).send();
   }),
 );
+
+// Para dibujar el camino recorrido en el mapa (RideMapPage) — ver
+// ride.service.ts::fetchLocationHistory.
+rideRoutes.get(
+  '/sessions/:id/location/history',
+  asyncHandler(async (req, res) => {
+    res.json(await rideService.fetchLocationHistory(req.userId, req.params.id));
+  }),
+);

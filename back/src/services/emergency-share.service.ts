@@ -154,3 +154,58 @@ export async function shareIdForToken(token: string): Promise<string | null> {
   );
   return rows[0]?.id ?? null;
 }
+
+/** Camino recorrido de un share personal — pedido explícito en vivo
+ * ("viaje individual" con ruta dibujada, igual que un viaje de grupo). Sin
+ * `battery_level`, mismo criterio que `location_history`. */
+export async function recordShareHistory(
+  userId: string,
+  shareId: string,
+  fix: LocationFixInput,
+) {
+  await loadOwnedActiveShare(userId, shareId);
+  await pool.query(
+    `insert into public.emergency_share_location_history
+       (share_id, latitude, longitude, accuracy, speed, heading, recorded_at)
+     values ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      shareId,
+      fix.latitude,
+      fix.longitude,
+      fix.accuracy ?? null,
+      fix.speed ?? null,
+      fix.heading ?? null,
+      fix.recordedAt,
+    ],
+  );
+}
+
+/** Camino "adentro de la app" (dueño del share viendo su propio
+ * recorrido). */
+export async function fetchShareHistory(userId: string, shareId: string) {
+  const { rows } = await pool.query(
+    `select h.latitude, h.longitude, h.recorded_at
+       from public.emergency_share_location_history h
+       join public.emergency_shares es on es.id = h.share_id
+      where h.share_id = $1 and es.user_id = $2
+      order by h.recorded_at asc`,
+    [shareId, userId],
+  );
+  return rows;
+}
+
+/** Camino "link público": sin auth, mismo criterio de acceso que
+ * `fetchByToken` (conocer el token alcanza) — no distingue share activo o
+ * ya terminado, para que el recorrido de un "viaje individual" ya
+ * finalizado siga siendo visible con el mismo link. */
+export async function fetchHistoryByToken(token: string) {
+  const { rows } = await pool.query(
+    `select h.latitude, h.longitude, h.recorded_at
+       from public.emergency_share_location_history h
+       join public.emergency_shares es on es.id = h.share_id
+      where es.share_token = $1
+      order by h.recorded_at asc`,
+    [token],
+  );
+  return rows;
+}

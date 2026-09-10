@@ -30,4 +30,8 @@ abstract interface class PublicShareRepository {
   /// active. Never completes on its own — cancel the subscription when the
   /// viewing screen closes.
   Stream<PublicShareView> watch(String token);
+
+  /// La ruta recorrida en este share — visible aunque ya haya terminado
+  /// (ver `back/`'s `fetchHistoryByToken`), estilo Strava.
+  Future<List<LocationFix>> fetchRoute(String token);
 }

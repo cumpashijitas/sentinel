@@ -21,6 +21,17 @@ abstract interface class EmergencyShareRepository {
     required LocationFix fix,
   });
 
+  /// Camino recorrido de un "viaje individual" — pedido explícito en vivo,
+  /// mismo patrón que `LiveLocationRepository.recordHistory` para un viaje
+  /// de grupo (se llama solo cuando `LocationSamplingPolicy` decide que el
+  /// fix es significativo, no en cada actualización de GPS).
+  Future<void> recordHistory({required String shareId, required LocationFix fix});
+
+  /// La ruta recorrida en este share (dueño viéndose a sí mismo) — estilo
+  /// Strava, igual que `LiveLocationRepository.fetchHistory` para un viaje
+  /// de grupo.
+  Future<List<LocationFix>> fetchMyRoute(String shareId);
+
   /// Every rider who has the caller as an emergency contact (with their own
   /// Sentinel account linked) and is sharing right now.
   Future<List<SharedWithMeEntry>> fetchSharedWithMe();

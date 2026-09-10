@@ -8,7 +8,10 @@
 
 import { Router } from 'express';
 import { asyncHandler } from '../lib/http.js';
-import { fetchByToken } from '../services/emergency-share.service.js';
+import {
+  fetchByToken,
+  fetchHistoryByToken,
+} from '../services/emergency-share.service.js';
 
 export const publicRoutes = Router();
 
@@ -16,5 +19,14 @@ publicRoutes.get(
   '/public/emergency-shares/:token',
   asyncHandler(async (req, res) => {
     res.json(await fetchByToken(req.params.token));
+  }),
+);
+
+// Camino recorrido — pedido explícito en vivo, para dibujar la ruta en
+// PublicSharePage igual que ya se puede en un viaje de grupo.
+publicRoutes.get(
+  '/public/emergency-shares/:token/history',
+  asyncHandler(async (req, res) => {
+    res.json(await fetchHistoryByToken(req.params.token));
   }),
 );

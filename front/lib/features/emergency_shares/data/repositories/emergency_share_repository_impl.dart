@@ -36,6 +36,23 @@ class EmergencyShareRepositoryImpl implements EmergencyShareRepository {
   );
 
   @override
+  Future<void> recordHistory({
+    required String shareId,
+    required LocationFix fix,
+  }) => _guard(
+    () => _remoteDataSource.recordHistory(
+      shareId: shareId,
+      fixJson: fix.toJson(),
+    ),
+  );
+
+  @override
+  Future<List<LocationFix>> fetchMyRoute(String shareId) => _guard(() async {
+    final rows = await _remoteDataSource.fetchHistory(shareId);
+    return rows.map(LocationFix.fromJson).toList(growable: false);
+  });
+
+  @override
   Future<List<SharedWithMeEntry>> fetchSharedWithMe() => _guard(() async {
     final rows = await _remoteDataSource.fetchSharedWithMe();
     return rows

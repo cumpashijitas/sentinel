@@ -41,6 +41,11 @@ abstract interface class LiveLocationRemoteDataSource {
     required String userId,
     required Map<String, dynamic> fixJson,
   });
+
+  /// El camino recorrido durante [sessionId] — pedido explícito en vivo
+  /// ("ver la ruta en el mapa"). Filas ya ordenadas por hora, ver
+  /// `ride.service.ts::fetchLocationHistory`.
+  Future<List<Map<String, dynamic>>> fetchHistory(String sessionId);
 }
 
 class HttpLiveLocationRemoteDataSource implements LiveLocationRemoteDataSource {
@@ -173,5 +178,11 @@ class HttpLiveLocationRemoteDataSource implements LiveLocationRemoteDataSource {
     // on the current-position row in `live_locations`).
     final row = Map<String, dynamic>.of(fixJson)..remove('battery_level');
     await _api.post('/sessions/$sessionId/location/history', body: row);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchHistory(String sessionId) async {
+    final response = await _api.get('/sessions/$sessionId/location/history');
+    return (response as List).cast<Map<String, dynamic>>();
   }
 }

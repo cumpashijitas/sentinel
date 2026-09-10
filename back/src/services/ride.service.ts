@@ -267,3 +267,24 @@ export async function recordLocationHistory(
     ],
   );
 }
+
+/** El camino recorrido por TODOS los integrantes del viaje, ya combinado
+ * y ordenado por hora — dibujar "una línea por persona" queda para más
+ * adelante si hace falta; hoy alcanza con una sola línea del recorrido
+ * del grupo. Solo integrantes activos del viaje pueden pedirla. */
+export async function fetchLocationHistory(userId: string, sessionId: string) {
+  if (!(await isSessionMember(sessionId, userId))) {
+    throw new HttpError(
+      403,
+      'you must be an active session participant to view location history',
+    );
+  }
+  const { rows } = await pool.query(
+    `select user_id, latitude, longitude, recorded_at
+       from public.location_history
+      where session_id = $1
+      order by recorded_at asc`,
+    [sessionId],
+  );
+  return rows;
+}

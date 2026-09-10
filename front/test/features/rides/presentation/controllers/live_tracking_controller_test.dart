@@ -52,6 +52,10 @@ class _FakeLiveLocationRepository implements LiveLocationRepository {
     required String userId,
     required LocationFix fix,
   }) => throw UnimplementedError();
+
+  @override
+  Future<List<LocationFix>> fetchHistory(String sessionId) =>
+      throw UnimplementedError();
 }
 
 class _FakeLocationRepository implements LocationRepository {

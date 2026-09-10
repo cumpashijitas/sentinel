@@ -97,6 +97,10 @@ class _FakeLiveLocationRepository implements LiveLocationRepository {
   }) async {
     recordedFixes.add(fix);
   }
+
+  @override
+  Future<List<LocationFix>> fetchHistory(String sessionId) =>
+      throw UnimplementedError();
 }
 
 void main() {

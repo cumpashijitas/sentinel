@@ -55,6 +55,12 @@ class LiveLocationRepositoryImpl implements LiveLocationRepository {
     ),
   );
 
+  @override
+  Future<List<LocationFix>> fetchHistory(String sessionId) => _guard(() async {
+    final rows = await _remoteDataSource.fetchHistory(sessionId);
+    return rows.map(LocationFix.fromJson).toList(growable: false);
+  });
+
   Future<T> _guard<T>(Future<T> Function() action) async {
     try {
       return await action();

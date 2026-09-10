@@ -76,3 +76,28 @@ emergencyShareRoutes.post(
     res.status(204).send();
   }),
 );
+
+// Camino recorrido de un "viaje individual" — pedido explícito en vivo,
+// mismo patrón que /sessions/:id/location/history para un viaje de grupo.
+emergencyShareRoutes.post(
+  '/emergency-shares/:id/location/history',
+  asyncHandler(async (req, res) => {
+    const fix = locationFixSchema.parse(req.body);
+    await shareService.recordShareHistory(req.userId, req.params.id, {
+      latitude: fix.latitude,
+      longitude: fix.longitude,
+      accuracy: fix.accuracy,
+      speed: fix.speed,
+      heading: fix.heading,
+      recordedAt: fix.recorded_at,
+    });
+    res.status(204).send();
+  }),
+);
+
+emergencyShareRoutes.get(
+  '/emergency-shares/:id/location/history',
+  asyncHandler(async (req, res) => {
+    res.json(await shareService.fetchShareHistory(req.userId, req.params.id));
+  }),
+);

@@ -21,7 +21,9 @@ import '../features/rides/data/datasources/geolocator_location_tracker.dart';
 import '../features/rides/data/datasources/live_location_remote_datasource.dart';
 import '../features/rides/data/repositories/live_location_repository_impl.dart';
 import '../features/rides/data/repositories/location_repository_impl.dart';
+import '../features/rides/domain/entities/location_fix.dart';
 import '../features/rides/domain/repositories/background_location_service.dart';
+import '../features/rides/domain/services/location_sampling_policy.dart';
 
 /// Entry point for `RideBackgroundService`'s own `FlutterEngine`
 /// (`android/app/src/main/kotlin/com/sentinel/app/RideBackgroundService.kt`)
@@ -194,13 +196,12 @@ Future<void> rideBackgroundMain(List<String> args) async {
 }
 
 /// Mismo trabajo que `LocationRepositoryImpl.startSharing` (mirar el
-/// dispositivo, mandar cada fix), pero para `emergency_shares` en vez de
-/// `ride_sessions`/`live_locations` — no hay `location_history` para un
-/// share personal, así que no hace falta `LocationSamplingPolicy` acá.
-/// Vive como función suelta, no como una clase nueva en `data/`, porque
-/// es literalmente el mismo cuerpo que ya tenía
-/// `EmergencyShareTrackingController.start()` en el motor de UI — cuando
-/// ese controlador delega a este servicio en Android (ver su propio
+/// dispositivo, mandar cada fix, y grabar `location_history` con el mismo
+/// `LocationSamplingPolicy`), pero para `emergency_shares` en vez de
+/// `ride_sessions`/`live_locations`. Vive como función suelta, no como una
+/// clase nueva en `data/`, porque es literalmente el mismo cuerpo que ya
+/// tenía `EmergencyShareTrackingController.start()` en el motor de UI —
+/// cuando ese controlador delega a este servicio en Android (ver su propio
 /// comentario), esta es la única copia real de esa lógica.
 Future<void> _startEmergencyShareTracking(
   String shareId,
@@ -217,6 +218,8 @@ Future<void> _startEmergencyShareTracking(
   final repository = EmergencyShareRepositoryImpl(
     HttpEmergencyShareRemoteDataSource(apiClient),
   );
+  const samplingPolicy = LocationSamplingPolicy();
+  LocationFix? lastRecordedHistoryFix;
   tracker.watchPosition().listen((fix) {
     unawaited(
       repository
@@ -229,5 +232,22 @@ Future<void> _startEmergencyShareTracking(
             );
           }),
     );
+    if (samplingPolicy.shouldRecord(
+      lastRecorded: lastRecordedHistoryFix,
+      current: fix,
+    )) {
+      lastRecordedHistoryFix = fix;
+      unawaited(
+        repository
+            .recordHistory(shareId: shareId, fix: fix)
+            .catchError((Object error, StackTrace stackTrace) {
+              AppLogger.error(
+                'RideBackgroundService: failed to record emergency share location history',
+                error: error,
+                stackTrace: stackTrace,
+              );
+            }),
+      );
+    }
   });
 }

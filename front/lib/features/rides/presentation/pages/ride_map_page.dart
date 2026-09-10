@@ -8,6 +8,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../maps/domain/entities/map_coordinate.dart';
+import '../../../maps/domain/entities/map_route.dart';
 import '../../../maps/domain/entities/map_viewport.dart';
 import '../../../maps/domain/repositories/map_controller.dart';
 import '../../../maps/presentation/controllers/map_providers.dart';
@@ -101,6 +102,7 @@ class _RideMapPageState extends ConsumerState<RideMapPage> {
       ),
       body: switch (membersAsync) {
         AsyncData(:final value) => _RideMapBody(
+          sessionId: widget.sessionId,
           members: value,
           currentUserId: currentUserId,
           isSharing: _isSharing,
@@ -121,6 +123,7 @@ class _RideMapPageState extends ConsumerState<RideMapPage> {
 
 class _RideMapBody extends ConsumerStatefulWidget {
   const _RideMapBody({
+    required this.sessionId,
     required this.members,
     required this.currentUserId,
     required this.isSharing,
@@ -128,6 +131,7 @@ class _RideMapBody extends ConsumerStatefulWidget {
     required this.onToggleSharing,
   });
 
+  final String sessionId;
   final List<MemberLocation> members;
   final String? currentUserId;
   final bool isSharing;
@@ -175,10 +179,18 @@ class _RideMapBodyState extends ConsumerState<_RideMapBody> {
   // último) consultan/aplican lo que ya está disponible.
   MapCoordinate? _deviceCenter;
 
+  // Ruta recorrida en este viaje (todos los miembros combinados — ver el
+  // doc comment de `fetchLocationHistory` en el backend), estilo Strava.
+  // Igual que `_deviceCenter` arriba: es un `Future` que corre en paralelo
+  // a `onMapReady`, así que se guarda acá y se aplica desde el que llegue
+  // último de los dos.
+  MapRoute? _route;
+
   @override
   void initState() {
     super.initState();
     unawaited(_centerOnDeviceLocation());
+    unawaited(_fetchRoute());
   }
 
   Future<void> _centerOnDeviceLocation() async {
@@ -191,6 +203,28 @@ class _RideMapBodyState extends ConsumerState<_RideMapBody> {
     final controller = _mapController;
     if (controller != null) {
       unawaited(controller.centerOnCoordinate(_deviceCenter!, zoom: 14));
+    }
+  }
+
+  Future<void> _fetchRoute() async {
+    final history = await ref
+        .read(liveLocationRepositoryProvider)
+        .fetchHistory(widget.sessionId);
+    if (!mounted || history.isEmpty) return;
+    _route = MapRoute(
+      id: widget.sessionId,
+      points: history
+          .map(
+            (fix) => MapCoordinate(
+              latitude: fix.latitude,
+              longitude: fix.longitude,
+            ),
+          )
+          .toList(growable: false),
+    );
+    final controller = _mapController;
+    if (controller != null) {
+      unawaited(controller.setRoute(_route));
     }
   }
 
@@ -273,6 +307,10 @@ class _RideMapBodyState extends ConsumerState<_RideMapBody> {
                     unawaited(
                       controller.centerOnCoordinate(deviceCenter, zoom: 14),
                     );
+                  }
+                  final route = _route;
+                  if (route != null) {
+                    unawaited(controller.setRoute(route));
                   }
                 },
               ),

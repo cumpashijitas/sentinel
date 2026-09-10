@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/logging/app_logger.dart';
 import '../../../maps/domain/entities/map_coordinate.dart';
 import '../../../maps/domain/entities/map_marker.dart';
+import '../../../maps/domain/entities/map_route.dart';
 import '../../../maps/domain/entities/map_viewport.dart';
 import '../../../maps/domain/repositories/map_controller.dart' as domain;
 import '../../../maps/presentation/controllers/map_providers.dart';
+import '../../../rides/domain/entities/location_fix.dart';
 import '../../data/datasources/public_share_remote_datasource.dart';
 import '../../data/repositories/public_share_repository_impl.dart';
 import '../../domain/repositories/public_share_repository.dart';
@@ -35,6 +38,11 @@ class _PublicSharePageState extends ConsumerState<PublicSharePage> {
   StreamSubscription<PublicShareView>? _subscription;
   domain.MapController? _mapController;
 
+  // Ruta recorrida en este share, estilo Strava — visible aunque el rider
+  // ya haya dejado de compartir (ver el doc comment de
+  // `fetchHistoryByToken` en el backend).
+  MapRoute? _route;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +51,7 @@ class _PublicSharePageState extends ConsumerState<PublicSharePage> {
       HttpPublicShareRemoteDataSource(apiBaseUrl),
     );
     unawaited(_load(repository));
+    unawaited(_fetchRoute(repository));
   }
 
   Future<void> _load(PublicShareRepository repository) async {
@@ -62,6 +71,39 @@ class _PublicSharePageState extends ConsumerState<PublicSharePage> {
       setState(() => _view = view);
       _pushMarker(view);
     });
+  }
+
+  Future<void> _fetchRoute(PublicShareRepository repository) async {
+    final List<LocationFix> history;
+    try {
+      history = await repository.fetchRoute(widget.token);
+    } catch (error, stackTrace) {
+      // No crítico: la ruta es un plus visual, no la razón de ser de esta
+      // pantalla (ver la posición en vivo) — un fallo acá no debe tapar el
+      // resto de la pantalla con un error.
+      AppLogger.error(
+        'Failed to fetch public share route',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return;
+    }
+    if (!mounted || history.isEmpty) return;
+    _route = MapRoute(
+      id: widget.token,
+      points: history
+          .map(
+            (fix) => MapCoordinate(
+              latitude: fix.latitude,
+              longitude: fix.longitude,
+            ),
+          )
+          .toList(growable: false),
+    );
+    final controller = _mapController;
+    if (controller != null) {
+      unawaited(controller.setRoute(_route));
+    }
   }
 
   void _pushMarker(PublicShareView view) {
@@ -171,6 +213,10 @@ class _PublicSharePageState extends ConsumerState<PublicSharePage> {
       onMapReady: (controller) {
         _mapController = controller;
         _pushMarker(view);
+        final route = _route;
+        if (route != null) {
+          unawaited(controller.setRoute(route));
+        }
       },
     );
   }

@@ -15,6 +15,13 @@ abstract interface class EmergencyShareRemoteDataSource {
     required Map<String, dynamic> fixJson,
   });
 
+  Future<void> recordHistory({
+    required String shareId,
+    required Map<String, dynamic> fixJson,
+  });
+
+  Future<List<Map<String, dynamic>>> fetchHistory(String shareId);
+
   Future<List<Map<String, dynamic>>> fetchSharedWithMe();
 }
 
@@ -47,6 +54,23 @@ class HttpEmergencyShareRemoteDataSource
     required Map<String, dynamic> fixJson,
   }) async {
     await _api.post('/emergency-shares/$shareId/location', body: fixJson);
+  }
+
+  @override
+  Future<void> recordHistory({
+    required String shareId,
+    required Map<String, dynamic> fixJson,
+  }) async {
+    await _api.post(
+      '/emergency-shares/$shareId/location/history',
+      body: fixJson,
+    );
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchHistory(String shareId) async {
+    final response = await _api.get('/emergency-shares/$shareId/location/history');
+    return (response as List).cast<Map<String, dynamic>>();
   }
 
   @override

@@ -40,4 +40,10 @@ abstract interface class LiveLocationRepository {
     required String userId,
     required LocationFix fix,
   });
+
+  /// El camino recorrido por todo el grupo durante [sessionId], combinado
+  /// y ordenado por hora — pedido explícito en vivo ("ver la ruta
+  /// recorrida en el mapa, estilo Strava"). Cualquier integrante activo
+  /// del viaje puede pedirlo, no solo quien está compartiendo ahora mismo.
+  Future<List<LocationFix>> fetchHistory(String sessionId);
 }

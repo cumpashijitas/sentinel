@@ -18,6 +18,12 @@ class PublicShareRepositoryImpl implements PublicShareRepository {
     return _remoteDataSource.watchByToken(token).map(_toView);
   }
 
+  @override
+  Future<List<LocationFix>> fetchRoute(String token) async {
+    final rows = await _remoteDataSource.fetchHistory(token);
+    return rows.map(LocationFix.fromJson).toList(growable: false);
+  }
+
   PublicShareView _toView(Map<String, dynamic> row) {
     final hasFix = row['latitude'] != null && row['longitude'] != null;
     return PublicShareView(

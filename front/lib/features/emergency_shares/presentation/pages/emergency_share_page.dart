@@ -12,6 +12,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../maps/domain/entities/map_coordinate.dart';
 import '../../../maps/domain/entities/map_marker.dart';
+import '../../../maps/domain/entities/map_route.dart';
 import '../../../maps/domain/entities/map_viewport.dart';
 import '../../../maps/domain/repositories/map_controller.dart' as domain;
 import '../../../maps/presentation/controllers/map_providers.dart';
@@ -192,7 +193,7 @@ class _ShareToggle extends StatelessWidget {
             style: Theme.of(context).textTheme.labelLarge,
           ),
           const SizedBox(height: AppSpacing.sm),
-          const _SelfLiveMap(),
+          _SelfLiveMap(shareId: share!.id),
           const SizedBox(height: AppSpacing.lg),
           Text(
             'Link para compartir',
@@ -214,7 +215,9 @@ class _ShareToggle extends StatelessWidget {
 /// misma ubicación en vivo, solo que el destinatario es un contacto de
 /// emergencia por link en vez de un roster de participantes.
 class _SelfLiveMap extends ConsumerStatefulWidget {
-  const _SelfLiveMap();
+  const _SelfLiveMap({required this.shareId});
+
+  final String shareId;
 
   @override
   ConsumerState<_SelfLiveMap> createState() => _SelfLiveMapState();
@@ -225,6 +228,11 @@ class _SelfLiveMapState extends ConsumerState<_SelfLiveMap> {
   StreamSubscription<LocationFix>? _subscription;
   bool _hasCenteredOnce = false;
 
+  // Ruta recorrida en este share, estilo Strava — mismo patrón que
+  // `RideMapPage`'s `_route`/`_fetchRoute`: un `Future` que corre en
+  // paralelo a `onMapReady`, aplicado desde el que llegue último.
+  MapRoute? _route;
+
   @override
   void initState() {
     super.initState();
@@ -232,6 +240,29 @@ class _SelfLiveMapState extends ConsumerState<_SelfLiveMap> {
       emergencyShareTrackingControllerProvider.notifier,
     );
     _subscription = notifier.fixStream.listen(_onFix);
+    unawaited(_fetchRoute());
+  }
+
+  Future<void> _fetchRoute() async {
+    final history = await ref
+        .read(emergencyShareRepositoryProvider)
+        .fetchMyRoute(widget.shareId);
+    if (!mounted || history.isEmpty) return;
+    _route = MapRoute(
+      id: widget.shareId,
+      points: history
+          .map(
+            (fix) => MapCoordinate(
+              latitude: fix.latitude,
+              longitude: fix.longitude,
+            ),
+          )
+          .toList(growable: false),
+    );
+    final controller = _mapController;
+    if (controller != null) {
+      unawaited(controller.setRoute(_route));
+    }
   }
 
   void _onFix(LocationFix fix) {
@@ -279,7 +310,13 @@ class _SelfLiveMapState extends ConsumerState<_SelfLiveMap> {
             center: MapCoordinate(latitude: 0, longitude: 0),
             zoom: 14,
           ),
-          onMapReady: (controller) => _mapController = controller,
+          onMapReady: (controller) {
+            _mapController = controller;
+            final route = _route;
+            if (route != null) {
+              unawaited(controller.setRoute(route));
+            }
+          },
         ),
       ),
     );

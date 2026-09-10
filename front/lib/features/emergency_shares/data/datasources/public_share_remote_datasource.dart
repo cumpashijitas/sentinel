@@ -17,6 +17,8 @@ abstract interface class PublicShareRemoteDataSource {
   /// `LiveLocationRemoteDataSource.watchLocationChanges`'s "open on first
   /// listen, close on last cancel" contract.
   Stream<Map<String, dynamic>> watchByToken(String token);
+
+  Future<List<Map<String, dynamic>>> fetchHistory(String token);
 }
 
 class HttpPublicShareRemoteDataSource implements PublicShareRemoteDataSource {
@@ -43,6 +45,16 @@ class HttpPublicShareRemoteDataSource implements PublicShareRemoteDataSource {
       throw Exception('share not found (${response.statusCode})');
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchHistory(String token) async {
+    final uri = Uri.parse('$_baseUrl/public/emergency-shares/$token/history');
+    final response = await http.get(uri);
+    if (response.statusCode != 200) {
+      throw Exception('share history not found (${response.statusCode})');
+    }
+    return (jsonDecode(response.body) as List).cast<Map<String, dynamic>>();
   }
 
   @override
