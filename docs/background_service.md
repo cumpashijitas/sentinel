@@ -161,6 +161,14 @@ share, apagar pantalla, confirmar fila nueva en
 posible accidente se reporte con `session_id: null`) queda pendiente
 antes de confiar en esto en producción.
 
+Lo mismo aplica al grabado de `emergency_share_location_history` que
+`_startEmergencyShareTracking` agregó después (la ruta recorrida de un
+"viaje individual", para dibujarla en el mapa estilo Strava — mismo
+`LocationSamplingPolicy` que ya usa el camino `ride`): tiene tests
+unitarios de la lógica de muestreo, pero confirmar que de verdad llegan
+filas nuevas a esa tabla desde el engine de background (no solo desde el
+motor de UI) tampoco fue verificado end-to-end todavía.
+
 ## Verificación end-to-end (dispositivo real: emulador Pixel 6 API 34) — camino `ride`
 
 Verificado con comandos reales contra el emulador (`adb`, `uiautomator
