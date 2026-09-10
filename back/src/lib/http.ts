@@ -54,6 +54,32 @@ export function errorHandler(
     res.status(error.status).json({ error: error.message });
     return;
   }
+
+  // Bug real encontrado en vivo: un cuerpo mal formado (p. ej. el front
+  // mandando el texto literal "null" en vez de nada — ya corregido en
+  // ApiClient, pero esto queda como defensa en profundidad) lo rechaza
+  // `body-parser` con un error que ya trae su propio `statusCode`/`status`
+  // (400) — antes esta rama lo ignoraba y respondía 500 igual, mostrando
+  // "Internal Server Error" en el front por algo que en realidad era un
+  // pedido mal formado, no una falla del servidor.
+  const statusCode =
+    typeof error === 'object' &&
+    error !== null &&
+    'statusCode' in error &&
+    typeof (error as { statusCode: unknown }).statusCode === 'number'
+      ? (error as { statusCode: number }).statusCode
+      : typeof error === 'object' &&
+          error !== null &&
+          'status' in error &&
+          typeof (error as { status: unknown }).status === 'number'
+        ? (error as { status: number }).status
+        : null;
+
+  if (statusCode !== null && statusCode >= 400 && statusCode < 500) {
+    res.status(statusCode).json({ error: 'malformed request' });
+    return;
+  }
+
   console.error('Unhandled error:', error);
   res.status(500).json({ error: 'internal server error' });
 }

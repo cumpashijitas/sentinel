@@ -30,6 +30,14 @@
          notification at all (without it, the foreground service still runs,
          it just can't display anything). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Aviso de "¿estás bien?" tras un posible accidente
+         (LocalAccidentAlertNotifier) — `fullScreenIntent: true` para que
+         se muestre a pantalla completa, no como un banner chico. Permiso
+         de protección normal (se otorga solo) hasta API 33; desde API 34
+         Android lo empieza a tratar como sensible — declararlo es lo que
+         mantiene el comportamiento de antes en vez de degradar
+         silenciosamente a un banner normal. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <!-- Fase 7 — accident detection. Accelerometer/gyroscope need no
          runtime permission (normal protection level), but declaring them
          as optional hardware features keeps the Play Store from filtering

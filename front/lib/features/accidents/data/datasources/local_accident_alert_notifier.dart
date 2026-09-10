@@ -77,8 +77,32 @@ class LocalAccidentAlertNotifier implements AccidentAlertNotifier {
       ongoing: true,
       autoCancel: false,
       timeoutAfter: countdown.inMilliseconds,
+      // Bug real encontrado en vivo, y el definitivo: `showsUserInterface`
+      // por defecto viene en `false` — eso le dice a Android que este
+      // botón se maneja en segundo plano, SIN abrir la app al tocarlo (para
+      // eso existe `onDidReceiveBackgroundNotificationResponse`, que nunca
+      // se registró acá). Con el valor por defecto, tocar "Estoy bien" no
+      // hacía literalmente nada: ni abría la app, ni pasaba por ningún
+      // callback. `showsUserInterface: true` hace que el toque abra/traiga
+      // la app al frente igual que tocar el cuerpo de la notificación — así
+      // entra por el mismo camino que ya funciona (`onDidReceiveNotification
+      // Response`/`getNotificationAppLaunchDetails` en `initialize()` de
+      // arriba), con sesión y `.env` ya cargados, en vez de necesitar un
+      // segundo camino aparte que corra en un isolate de fondo sin nada de
+      // eso disponible.
+      //
+      // `fullScreenIntent: true` — pedido en vivo ("que el botón sea más
+      // grande"): Android no deja agrandar el botón en sí, pero sí mostrar
+      // todo el aviso a pantalla completa (como una llamada entrante) en
+      // vez de un banner chico — mucho más difícil de pasar por alto
+      // mientras se maneja.
+      fullScreenIntent: true,
       actions: const [
-        AndroidNotificationAction(_confirmActionId, 'Estoy bien'),
+        AndroidNotificationAction(
+          _confirmActionId,
+          'Estoy bien',
+          showsUserInterface: true,
+        ),
       ],
     );
 

@@ -56,16 +56,28 @@ class ApiClient {
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
       _send(() => _http.get(_uri(path, query), headers: _headers));
 
+  // Bug real encontrado en vivo (log de Render): `POST /sessions/:id/finish`,
+  // `POST /emergency-shares/start`, `POST /groups/:id/leave` — cualquier
+  // llamada sin cuerpo — mandaban antes `jsonEncode(null)`, o sea el texto
+  // literal `"null"`, como body, igual con `Content-Type: application/json`
+  // puesto. `body-parser` (Express) rechaza eso: en modo estricto (el
+  // default) solo acepta un objeto o array como valor JSON de tope, así
+  // que "null" — válido como JSON, pero no como tope estricto — tira
+  // `SyntaxError: ... "null" is not valid JSON`, sin llegar nunca al
+  // handler de la ruta. `_bodyOf` evita mandar ningún cuerpo cuando no hay
+  // nada que mandar, en vez de mandar la palabra "null".
+  String? _bodyOf(Object? body) => body == null ? null : jsonEncode(body);
+
   Future<dynamic> post(String path, {Object? body}) => _send(
-    () => _http.post(_uri(path), headers: _headers, body: jsonEncode(body)),
+    () => _http.post(_uri(path), headers: _headers, body: _bodyOf(body)),
   );
 
   Future<dynamic> put(String path, {Object? body}) => _send(
-    () => _http.put(_uri(path), headers: _headers, body: jsonEncode(body)),
+    () => _http.put(_uri(path), headers: _headers, body: _bodyOf(body)),
   );
 
   Future<dynamic> patch(String path, {Object? body}) => _send(
-    () => _http.patch(_uri(path), headers: _headers, body: jsonEncode(body)),
+    () => _http.patch(_uri(path), headers: _headers, body: _bodyOf(body)),
   );
 
   Future<dynamic> delete(String path) =>
