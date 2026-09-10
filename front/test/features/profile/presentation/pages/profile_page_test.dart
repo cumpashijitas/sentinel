@@ -3,13 +3,26 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sentinel_v2/features/accidents/domain/entities/accident_event.dart';
+import 'package:sentinel_v2/features/accidents/domain/entities/motion_sample.dart';
+import 'package:sentinel_v2/features/accidents/domain/repositories/accident_event_repository.dart';
+import 'package:sentinel_v2/features/accidents/presentation/controllers/accident_event_providers.dart';
 import 'package:sentinel_v2/features/auth/domain/entities/app_user.dart';
 import 'package:sentinel_v2/features/auth/domain/repositories/auth_repository.dart';
 import 'package:sentinel_v2/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:sentinel_v2/features/emergency_shares/domain/entities/emergency_share.dart';
+import 'package:sentinel_v2/features/emergency_shares/domain/repositories/emergency_share_repository.dart';
+import 'package:sentinel_v2/features/emergency_shares/presentation/controllers/emergency_share_providers.dart';
 import 'package:sentinel_v2/features/profile/domain/entities/profile.dart';
 import 'package:sentinel_v2/features/profile/domain/repositories/profile_repository.dart';
 import 'package:sentinel_v2/features/profile/presentation/controllers/profile_controller.dart';
 import 'package:sentinel_v2/features/profile/presentation/pages/profile_page.dart';
+import 'package:sentinel_v2/features/rides/domain/entities/location_fix.dart';
+import 'package:sentinel_v2/features/rides/domain/entities/ride_history_entry.dart';
+import 'package:sentinel_v2/features/rides/domain/entities/ride_session.dart';
+import 'package:sentinel_v2/features/rides/domain/entities/ride_session_participant.dart';
+import 'package:sentinel_v2/features/rides/domain/repositories/ride_session_repository.dart';
+import 'package:sentinel_v2/features/rides/presentation/controllers/ride_sessions_controller.dart';
 
 const _currentUser = AppUser(id: 'u1', email: 'rider1@sentinel.dev');
 
@@ -75,8 +88,110 @@ class _FakeProfileRepository implements ProfileRepository {
   }
 }
 
+/// Solo lo que necesita `rideStatisticsProvider` para la nueva tile "Tu
+/// actividad" en el perfil (ver [_ProfileActivitySummary] en
+/// `profile_page.dart`) — no hay nada más que probar de estos tres acá,
+/// eso ya lo cubre `history_controller_test.dart`/`ride_statistics_calculator_test.dart`.
+class _FakeRideSessionRepository implements RideSessionRepository {
+  List<RideHistoryEntry> historyToReturn = [];
+
+  @override
+  Future<List<RideHistoryEntry>> fetchHistory(String userId) async =>
+      historyToReturn;
+
+  @override
+  Future<RideSession?> fetchActiveSession(String groupId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<RideSession> fetchSession(String sessionId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<RideSessionParticipant>> fetchParticipants(String sessionId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<RideSession> startSession({required String groupId, String? name}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<RideSession> finishSession(String sessionId) =>
+      throw UnimplementedError();
+}
+
+class _FakeEmergencyShareRepository implements EmergencyShareRepository {
+  List<EmergencyShare> historyToReturn = [];
+
+  @override
+  Future<List<EmergencyShare>> fetchHistory() async => historyToReturn;
+
+  @override
+  Future<EmergencyShare?> fetchActiveShare() => throw UnimplementedError();
+
+  @override
+  Future<EmergencyShare> startShare() => throw UnimplementedError();
+
+  @override
+  Future<void> stopShare() => throw UnimplementedError();
+
+  @override
+  Future<void> upsertMyLocation({
+    required String shareId,
+    required LocationFix fix,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> recordHistory({
+    required String shareId,
+    required LocationFix fix,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<List<LocationFix>> fetchMyRoute(String shareId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<SharedWithMeEntry>> fetchSharedWithMe() =>
+      throw UnimplementedError();
+}
+
+class _FakeAccidentEventRepository implements AccidentEventRepository {
+  List<AccidentEvent> historyToReturn = [];
+
+  @override
+  Future<List<AccidentEvent>> fetchMine(String userId) async =>
+      historyToReturn;
+
+  @override
+  Future<AccidentEvent> fetchById(String accidentEventId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<AccidentEvent> reportCandidate({
+    required String userId,
+    required String? sessionId,
+    required double impactMps2,
+    double? gyroRadS,
+    double? gForce,
+    double? confidenceScore,
+    double? latitude,
+    double? longitude,
+    required MotionSample sample,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> cancel(String accidentEventId) => throw UnimplementedError();
+
+  @override
+  Future<void> confirm(String accidentEventId) => throw UnimplementedError();
+}
+
 void main() {
   late _FakeProfileRepository fakeProfileRepository;
+  late _FakeRideSessionRepository fakeRideSessionRepository;
+  late _FakeEmergencyShareRepository fakeEmergencyShareRepository;
+  late _FakeAccidentEventRepository fakeAccidentEventRepository;
 
   Future<void> pumpProfilePage(WidgetTester tester) async {
     await tester.pumpWidget(
@@ -84,6 +199,15 @@ void main() {
         overrides: [
           authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
           profileRepositoryProvider.overrideWithValue(fakeProfileRepository),
+          rideSessionRepositoryProvider.overrideWithValue(
+            fakeRideSessionRepository,
+          ),
+          emergencyShareRepositoryProvider.overrideWithValue(
+            fakeEmergencyShareRepository,
+          ),
+          accidentEventRepositoryProvider.overrideWithValue(
+            fakeAccidentEventRepository,
+          ),
         ],
         child: const MaterialApp(home: ProfilePage()),
       ),
@@ -92,6 +216,9 @@ void main() {
 
   setUp(() {
     fakeProfileRepository = _FakeProfileRepository();
+    fakeRideSessionRepository = _FakeRideSessionRepository();
+    fakeEmergencyShareRepository = _FakeEmergencyShareRepository();
+    fakeAccidentEventRepository = _FakeAccidentEventRepository();
   });
 
   group('ProfilePage', () {
@@ -157,5 +284,52 @@ void main() {
 
       expect(fakeProfileRepository.lastSavedWhatsappAlertsOptIn, isTrue);
     });
+
+    testWidgets(
+      // Pedido explícito en vivo: "una especie de perfil por usuario, ahí
+      // se guarden las rutas con sus grupos, sus rutas individuales,
+      // accidentes, estadísticas" — el perfil ahora muestra ese resumen,
+      // derivado del mismo cálculo que ya usa `HistoryPage`.
+      'shows an activity summary derived from ride, share and accident history',
+      (tester) async {
+        fakeRideSessionRepository.historyToReturn = [
+          RideHistoryEntry(
+            sessionId: 's1',
+            groupId: 'g1',
+            groupName: 'Los Nómadas',
+            status: RideSessionStatus.finished,
+            startedAt: DateTime.utc(2026, 8, 27, 8),
+            endedAt: DateTime.utc(2026, 8, 27, 9),
+          ),
+        ];
+        fakeEmergencyShareRepository.historyToReturn = [
+          EmergencyShare(
+            id: 'sh1',
+            userId: 'u1',
+            shareToken: 'tok1',
+            status: EmergencyShareStatus.ended,
+            startedAt: DateTime.utc(2026, 8, 27, 10),
+            endedAt: DateTime.utc(2026, 8, 27, 10, 30),
+          ),
+        ];
+        fakeAccidentEventRepository.historyToReturn = [
+          AccidentEvent(
+            id: 'a1',
+            userId: 'u1',
+            impactMps2: 30,
+            status: AccidentEventStatus.confirmed,
+            occurredAt: DateTime.utc(2026, 8, 27),
+          ),
+        ];
+
+        await pumpProfilePage(tester);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Tu actividad'), findsOneWidget);
+        // 1 de grupo + 1 individual = 2 actividades totales.
+        expect(find.text('2'), findsOneWidget);
+        expect(find.text('Ver historial completo'), findsOneWidget);
+      },
+    );
   });
 }

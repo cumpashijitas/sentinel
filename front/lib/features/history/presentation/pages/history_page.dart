@@ -4,14 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/hub_scaffold.dart';
+import '../../../../app/router.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/responsive_content.dart';
 import '../../../../shared/widgets/status_chip.dart';
 import '../../../../shared/widgets/timeline_tile.dart';
 import '../../../accidents/domain/entities/accident_event.dart';
-import '../../../rides/domain/entities/ride_history_entry.dart';
 import '../../domain/entities/ride_statistics.dart';
+import '../../domain/entities/route_history_entry.dart';
 import '../controllers/history_controller.dart';
 
 /// Fase 9: three tabs over data the user already produced elsewhere in the
@@ -49,6 +50,10 @@ class HistoryPage extends StatelessWidget {
   }
 }
 
+/// Viajes de grupo y rutas individuales, mezclados en un solo feed
+/// cronológico — pedido explícito en vivo ("las rutas con sus grupos, sus
+/// rutas individuales"), mismo espíritu que Strava no separando actividades
+/// solas de las de grupo. Ver [RouteHistoryEntry]/[routeHistoryProvider].
 class _RideHistoryTab extends ConsumerWidget {
   const _RideHistoryTab();
 
@@ -56,9 +61,9 @@ class _RideHistoryTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ridesAsync = ref.watch(rideHistoryProvider);
+    final routesAsync = ref.watch(routeHistoryProvider);
 
-    return switch (ridesAsync) {
+    return switch (routesAsync) {
       AsyncData(:final value) =>
         value.isEmpty
             ? const EmptyState(
@@ -73,7 +78,7 @@ class _RideHistoryTab extends ConsumerWidget {
                   AppSpacing.xxxl,
                 ),
                 itemCount: value.length,
-                itemBuilder: (context, index) => _RideHistoryTile(
+                itemBuilder: (context, index) => _RouteHistoryTile(
                   entry: value[index],
                   dateFormat: _dateFormat,
                   isFirst: index == 0,
@@ -86,15 +91,15 @@ class _RideHistoryTab extends ConsumerWidget {
   }
 }
 
-class _RideHistoryTile extends StatelessWidget {
-  const _RideHistoryTile({
+class _RouteHistoryTile extends StatelessWidget {
+  const _RouteHistoryTile({
     required this.entry,
     required this.dateFormat,
     required this.isFirst,
     required this.isLast,
   });
 
-  final RideHistoryEntry entry;
+  final RouteHistoryEntry entry;
   final DateFormat dateFormat;
   final bool isFirst;
   final bool isLast;
@@ -103,24 +108,35 @@ class _RideHistoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final duration = entry.duration;
     final colorScheme = Theme.of(context).colorScheme;
+    final ride = entry.ride;
+    final share = entry.share;
+
     return TimelineTile(
       isFirst: isFirst,
       isLast: isLast,
-      color: colorScheme.primary,
-      icon: Icons.pedal_bike_rounded,
-      onTap: () => context.push('/rides/${entry.sessionId}'),
+      color: entry.isGroup ? colorScheme.primary : colorScheme.tertiary,
+      icon: entry.isGroup
+          ? Icons.pedal_bike_rounded
+          : Icons.share_location_rounded,
+      onTap: () => context.push(
+        ride != null
+            ? '/rides/${ride.sessionId}'
+            : AppRoutes.publicSharePath(share!.shareToken),
+      ),
       child: Card(
         margin: EdgeInsets.zero,
         child: ListTile(
           title: Text(
-            entry.name?.trim().isNotEmpty ?? false
-                ? entry.name!
-                : entry.groupName,
+            ride != null
+                ? (ride.name?.trim().isNotEmpty ?? false
+                      ? ride.name!
+                      : ride.groupName)
+                : 'Viaje individual',
             style: Theme.of(context).textTheme.titleSmall,
           ),
           subtitle: Text(
             [
-              entry.groupName,
+              if (ride != null) ride.groupName,
               dateFormat.format(entry.startedAt.toLocal()),
               if (duration != null) _formatDuration(duration),
             ].join(' · '),
@@ -254,6 +270,9 @@ class _StatisticsBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final hours = stats.totalRideDuration.inHours;
     final minutes = stats.totalRideDuration.inMinutes.remainder(60);
+    final individualHours = stats.totalIndividualRideDuration.inHours;
+    final individualMinutes = stats.totalIndividualRideDuration.inMinutes
+        .remainder(60);
 
     return GridView(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -266,19 +285,38 @@ class _StatisticsBody extends StatelessWidget {
       children: [
         _StatTile(
           icon: Icons.pedal_bike_rounded,
-          label: 'Viajes completados',
+          label: 'Viajes de grupo',
           value: '${stats.totalRides}',
         ),
         _StatTile(
           icon: Icons.timer_rounded,
-          label: 'Tiempo total en ruta',
+          label: 'Tiempo total en grupo',
           value: hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m',
         ),
+        // Solo aparecen si el rider alguna vez compartió un "viaje
+        // individual" — no tiene sentido mostrar dos ceros a alguien que
+        // nunca usó esa función.
+        if (stats.totalIndividualRides > 0) ...[
+          _StatTile(
+            icon: Icons.share_location_rounded,
+            label: 'Rutas individuales',
+            value: '${stats.totalIndividualRides}',
+            color: Theme.of(context).colorScheme.tertiary,
+          ),
+          _StatTile(
+            icon: Icons.timer_outlined,
+            label: 'Tiempo total solo',
+            value: individualHours > 0
+                ? '${individualHours}h ${individualMinutes}m'
+                : '${individualMinutes}m',
+            color: Theme.of(context).colorScheme.tertiary,
+          ),
+        ],
         _StatTile(
           icon: Icons.warning_amber_rounded,
           label: 'Accidentes confirmados',
           value: '${stats.totalAccidents}',
-          color: Theme.of(context).colorScheme.tertiary,
+          color: Theme.of(context).colorScheme.error,
         ),
         if (stats.lastRideAt != null)
           _StatTile(

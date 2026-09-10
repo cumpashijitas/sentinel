@@ -51,6 +51,21 @@ export async function fetchActiveShare(userId: string) {
   return rows[0] ?? null;
 }
 
+/** Perfil de usuario — pedido explícito en vivo ("sus rutas individuales"
+ * junto a las de grupo). Devuelve todos los shares del usuario, activo o
+ * no; el front filtra a `ended` para el historial, igual que
+ * `RideSessionRepositoryImpl.fetchHistory` filtra a `finished` del lado
+ * del cliente en vez de acá. */
+export async function fetchSharesForUser(userId: string) {
+  const { rows } = await pool.query(
+    `select * from public.emergency_shares
+      where user_id = $1
+      order by started_at desc`,
+    [userId],
+  );
+  return rows;
+}
+
 async function loadOwnedActiveShare(userId: string, shareId: string) {
   const { rows } = await pool.query(
     `select * from public.emergency_shares

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/router.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/section_header.dart';
+import '../../../history/domain/entities/ride_statistics.dart';
+import '../../../history/presentation/controllers/history_controller.dart';
 import '../../domain/entities/profile.dart';
 import '../controllers/profile_controller.dart';
 
@@ -171,6 +175,8 @@ class _ProfileForm extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxl),
+                  const _ProfileActivitySummary(),
+                  const SizedBox(height: AppSpacing.xxl),
                   AppTextField(
                     label: 'Nombre',
                     controller: displayNameController,
@@ -218,6 +224,119 @@ class _ProfileForm extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Pedido explícito en vivo: "una especie de perfil por usuario, ahí se
+/// guarden las rutas con sus grupos, sus rutas individuales, accidentes,
+/// estadísticas" — el perfil ahora muestra ese resumen de un vistazo,
+/// derivado de [rideStatisticsProvider] (que ya combina viajes de grupo,
+/// shares individuales y accidentes — ver `RideStatisticsCalculator`), con
+/// un acceso directo al detalle completo (`HistoryPage`), en vez de
+/// duplicar esas listas acá.
+class _ProfileActivitySummary extends ConsumerWidget {
+  const _ProfileActivitySummary();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final statsAsync = ref.watch(rideStatisticsProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Tu actividad', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: AppSpacing.md),
+            switch (statsAsync) {
+              AsyncData(:final value) => _SummaryRow(stats: value),
+              AsyncError(:final error) => Text(error.toString()),
+              _ => const Center(child: CircularProgressIndicator()),
+            },
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => context.push(AppRoutes.history),
+                icon: const Icon(Icons.chevron_right_rounded),
+                label: const Text('Ver historial completo'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({required this.stats});
+
+  final RideStatistics stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _SummaryStat(
+          icon: Icons.route_rounded,
+          value: '${stats.totalActivities}',
+          label: 'Actividades',
+        ),
+        _SummaryStat(
+          icon: Icons.groups_rounded,
+          value: '${stats.totalRides}',
+          label: 'De grupo',
+        ),
+        _SummaryStat(
+          icon: Icons.share_location_rounded,
+          value: '${stats.totalIndividualRides}',
+          label: 'Individuales',
+        ),
+        _SummaryStat(
+          icon: Icons.warning_amber_rounded,
+          value: '${stats.totalAccidents}',
+          label: 'Accidentes',
+          color: Theme.of(context).colorScheme.error,
+        ),
+      ],
+    );
+  }
+}
+
+class _SummaryStat extends StatelessWidget {
+  const _SummaryStat({
+    required this.icon,
+    required this.value,
+    required this.label,
+    this.color,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = color ?? Theme.of(context).colorScheme.primary;
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, color: tint, size: 20),
+          const SizedBox(height: AppSpacing.xs),
+          Text(value, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }

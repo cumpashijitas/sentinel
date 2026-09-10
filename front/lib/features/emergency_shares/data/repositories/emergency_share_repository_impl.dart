@@ -53,6 +53,17 @@ class EmergencyShareRepositoryImpl implements EmergencyShareRepository {
   });
 
   @override
+  Future<List<EmergencyShare>> fetchHistory() => _guard(() async {
+    final rows = await _remoteDataSource.fetchSharesHistory();
+    final shares = rows
+        .map(EmergencyShare.fromJson)
+        .where((share) => share.status == EmergencyShareStatus.ended)
+        .toList(growable: false);
+    shares.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    return shares;
+  });
+
+  @override
   Future<List<SharedWithMeEntry>> fetchSharedWithMe() => _guard(() async {
     final rows = await _remoteDataSource.fetchSharedWithMe();
     return rows

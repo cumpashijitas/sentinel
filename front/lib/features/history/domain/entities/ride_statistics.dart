@@ -10,9 +10,22 @@ part 'ride_statistics.freezed.dart';
 @freezed
 abstract class RideStatistics with _$RideStatistics {
   const factory RideStatistics({
+    /// Viajes de grupo terminados — no incluye rutas individuales, ver
+    /// [totalIndividualRides] para esas.
     required int totalRides,
     required Duration totalRideDuration,
+
+    /// Shares personales terminados ("viajes individuales") — pedido
+    /// explícito en vivo junto a las rutas de grupo.
+    required int totalIndividualRides,
+    required Duration totalIndividualRideDuration,
     required int totalAccidents,
     DateTime? lastRideAt,
   }) = _RideStatistics;
+
+  const RideStatistics._();
+
+  /// Actividades totales, de grupo o individuales — la métrica que un
+  /// rider realmente quiere ver de un vistazo, estilo Strava.
+  int get totalActivities => totalRides + totalIndividualRides;
 }

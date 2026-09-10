@@ -1,4 +1,5 @@
 import '../../../accidents/domain/entities/accident_event.dart';
+import '../../../emergency_shares/domain/entities/emergency_share.dart';
 import '../../../rides/domain/entities/ride_history_entry.dart';
 import '../entities/ride_statistics.dart';
 
@@ -16,6 +17,7 @@ abstract final class RideStatisticsCalculator {
   static RideStatistics compute({
     required List<RideHistoryEntry> rides,
     required List<AccidentEvent> accidents,
+    List<EmergencyShare> shares = const [],
   }) {
     var totalRideDuration = Duration.zero;
     DateTime? lastRideAt;
@@ -23,6 +25,21 @@ abstract final class RideStatisticsCalculator {
       totalRideDuration += ride.duration ?? Duration.zero;
       if (lastRideAt == null || ride.startedAt.isAfter(lastRideAt)) {
         lastRideAt = ride.startedAt;
+      }
+    }
+
+    // Mismo criterio que arriba, pero para "viajes individuales" — pedido
+    // explícito en vivo junto a las rutas de grupo. `shares` ya llega
+    // filtrado a `ended` (ver `EmergencyShareRepositoryImpl.fetchHistory`),
+    // así que `endedAt` siempre está presente acá.
+    var totalIndividualRideDuration = Duration.zero;
+    for (final share in shares) {
+      final endedAt = share.endedAt;
+      if (endedAt != null) {
+        totalIndividualRideDuration += endedAt.difference(share.startedAt);
+      }
+      if (lastRideAt == null || share.startedAt.isAfter(lastRideAt)) {
+        lastRideAt = share.startedAt;
       }
     }
 
@@ -41,6 +58,8 @@ abstract final class RideStatisticsCalculator {
     return RideStatistics(
       totalRides: rides.length,
       totalRideDuration: totalRideDuration,
+      totalIndividualRides: shares.length,
+      totalIndividualRideDuration: totalIndividualRideDuration,
       totalAccidents: totalAccidents,
       lastRideAt: lastRideAt,
     );

@@ -35,4 +35,10 @@ abstract interface class EmergencyShareRepository {
   /// Every rider who has the caller as an emergency contact (with their own
   /// Sentinel account linked) and is sharing right now.
   Future<List<SharedWithMeEntry>> fetchSharedWithMe();
+
+  /// Todos los shares terminados del usuario, más recientes primero — sus
+  /// "rutas individuales" en el perfil, junto a `RideSessionRepository
+  /// .fetchHistory` para las de grupo. Filtra a `ended` del lado del
+  /// cliente, mismo criterio que ese repositorio filtra a `finished`.
+  Future<List<EmergencyShare>> fetchHistory();
 }

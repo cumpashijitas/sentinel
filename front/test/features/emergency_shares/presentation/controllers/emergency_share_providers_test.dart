@@ -103,6 +103,9 @@ class _FakeEmergencyShareRepository implements EmergencyShareRepository {
   @override
   Future<List<SharedWithMeEntry>> fetchSharedWithMe() =>
       throw UnimplementedError();
+
+  @override
+  Future<List<EmergencyShare>> fetchHistory() => throw UnimplementedError();
 }
 
 /// A controllable device stream — used by the "Web" test below to emit

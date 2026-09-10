@@ -5,6 +5,9 @@ import 'package:sentinel_v2/features/accidents/domain/entities/motion_sample.dar
 import 'package:sentinel_v2/features/accidents/domain/repositories/accident_event_repository.dart';
 import 'package:sentinel_v2/features/auth/domain/entities/app_user.dart';
 import 'package:sentinel_v2/features/auth/domain/repositories/auth_repository.dart';
+import 'package:sentinel_v2/features/emergency_shares/domain/entities/emergency_share.dart';
+import 'package:sentinel_v2/features/emergency_shares/domain/repositories/emergency_share_repository.dart';
+import 'package:sentinel_v2/features/rides/domain/entities/location_fix.dart';
 import 'package:sentinel_v2/features/rides/domain/entities/ride_history_entry.dart';
 import 'package:sentinel_v2/features/rides/domain/entities/ride_session.dart';
 import 'package:sentinel_v2/features/rides/domain/entities/ride_session_participant.dart';
@@ -69,6 +72,42 @@ class FakeRideSessionRepository implements RideSessionRepository {
 
   @override
   Future<RideSession> finishSession(String sessionId) =>
+      throw UnimplementedError();
+}
+
+class FakeEmergencyShareRepository implements EmergencyShareRepository {
+  List<EmergencyShare> historyToReturn = [];
+
+  @override
+  Future<List<EmergencyShare>> fetchHistory() async => historyToReturn;
+
+  @override
+  Future<EmergencyShare?> fetchActiveShare() => throw UnimplementedError();
+
+  @override
+  Future<EmergencyShare> startShare() => throw UnimplementedError();
+
+  @override
+  Future<void> stopShare() => throw UnimplementedError();
+
+  @override
+  Future<void> upsertMyLocation({
+    required String shareId,
+    required LocationFix fix,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> recordHistory({
+    required String shareId,
+    required LocationFix fix,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<List<LocationFix>> fetchMyRoute(String shareId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<SharedWithMeEntry>> fetchSharedWithMe() =>
       throw UnimplementedError();
 }
 

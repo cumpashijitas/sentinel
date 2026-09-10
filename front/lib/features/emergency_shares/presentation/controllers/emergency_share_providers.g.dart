@@ -250,9 +250,10 @@ String _$emergencyLocationTrackerHash() =>
 /// Drives the actual GPS push loop while a share is active — separate from
 /// [EmergencyShareActionsController] (which only tracks the start/stop
 /// *action* itself) the same way `LiveTrackingController` is separate from
-/// `RideSessionActionsController` for group rides. No sampling/history
-/// here on purpose: a share only ever needs the *current* position, there's
-/// no `location_history`-equivalent table for it.
+/// `RideSessionActionsController` for group rides. Muestra el mismo
+/// criterio de muestreo que un viaje de grupo (`LocationSamplingPolicy`) al
+/// grabar `emergency_share_location_history` — pedido explícito en vivo
+/// ("viaje individual" con ruta dibujada, igual que un viaje de grupo).
 
 @ProviderFor(EmergencyShareTrackingController)
 final emergencyShareTrackingControllerProvider =
@@ -261,17 +262,19 @@ final emergencyShareTrackingControllerProvider =
 /// Drives the actual GPS push loop while a share is active — separate from
 /// [EmergencyShareActionsController] (which only tracks the start/stop
 /// *action* itself) the same way `LiveTrackingController` is separate from
-/// `RideSessionActionsController` for group rides. No sampling/history
-/// here on purpose: a share only ever needs the *current* position, there's
-/// no `location_history`-equivalent table for it.
+/// `RideSessionActionsController` for group rides. Muestra el mismo
+/// criterio de muestreo que un viaje de grupo (`LocationSamplingPolicy`) al
+/// grabar `emergency_share_location_history` — pedido explícito en vivo
+/// ("viaje individual" con ruta dibujada, igual que un viaje de grupo).
 final class EmergencyShareTrackingControllerProvider
     extends $AsyncNotifierProvider<EmergencyShareTrackingController, void> {
   /// Drives the actual GPS push loop while a share is active — separate from
   /// [EmergencyShareActionsController] (which only tracks the start/stop
   /// *action* itself) the same way `LiveTrackingController` is separate from
-  /// `RideSessionActionsController` for group rides. No sampling/history
-  /// here on purpose: a share only ever needs the *current* position, there's
-  /// no `location_history`-equivalent table for it.
+  /// `RideSessionActionsController` for group rides. Muestra el mismo
+  /// criterio de muestreo que un viaje de grupo (`LocationSamplingPolicy`) al
+  /// grabar `emergency_share_location_history` — pedido explícito en vivo
+  /// ("viaje individual" con ruta dibujada, igual que un viaje de grupo).
   EmergencyShareTrackingControllerProvider._()
     : super(
         from: null,
@@ -293,14 +296,15 @@ final class EmergencyShareTrackingControllerProvider
 }
 
 String _$emergencyShareTrackingControllerHash() =>
-    r'eb65e7619b168d55e6a502fe5e90ac2da546dc0c';
+    r'2105ef6e47ca12a2ffa423d77cf8350d9494a366';
 
 /// Drives the actual GPS push loop while a share is active — separate from
 /// [EmergencyShareActionsController] (which only tracks the start/stop
 /// *action* itself) the same way `LiveTrackingController` is separate from
-/// `RideSessionActionsController` for group rides. No sampling/history
-/// here on purpose: a share only ever needs the *current* position, there's
-/// no `location_history`-equivalent table for it.
+/// `RideSessionActionsController` for group rides. Muestra el mismo
+/// criterio de muestreo que un viaje de grupo (`LocationSamplingPolicy`) al
+/// grabar `emergency_share_location_history` — pedido explícito en vivo
+/// ("viaje individual" con ruta dibujada, igual que un viaje de grupo).
 
 abstract class _$EmergencyShareTrackingController extends $AsyncNotifier<void> {
   FutureOr<void> build();
@@ -359,7 +363,7 @@ final class EmergencyShareActionsControllerProvider
 }
 
 String _$emergencyShareActionsControllerHash() =>
-    r'4585f6281e332fa3fcc24dd6359f8ee76132c903';
+    r'7c54a47258e6eb6514d00df28b8d165cd76237e5';
 
 /// Drives "start/stop sharing with my emergency contacts" from the
 /// presentation layer — same shape as `RideSessionActionsController`:

@@ -559,7 +559,7 @@ final class LiveTrackingControllerProvider
 }
 
 String _$liveTrackingControllerHash() =>
-    r'53d8de5a46122378c561643800e54bc9d9421163';
+    r'f9d62f6c9f5da3e886818dcec8aa5e862feb3bf0';
 
 /// Drives "share my location for this ride" (start/stop). Same shape as
 /// the other `*Controller`s: `state` is only the action's own

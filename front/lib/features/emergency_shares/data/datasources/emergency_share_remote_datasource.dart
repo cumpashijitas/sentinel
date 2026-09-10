@@ -23,6 +23,11 @@ abstract interface class EmergencyShareRemoteDataSource {
   Future<List<Map<String, dynamic>>> fetchHistory(String shareId);
 
   Future<List<Map<String, dynamic>>> fetchSharedWithMe();
+
+  /// Todos los shares del usuario, pasados y presentes — para "perfil de
+  /// usuario" (rutas individuales). Distinto de [fetchHistory], que trae el
+  /// recorrido (lat/lng) de UN share, no la lista de shares en sí.
+  Future<List<Map<String, dynamic>>> fetchSharesHistory();
 }
 
 class HttpEmergencyShareRemoteDataSource
@@ -76,6 +81,12 @@ class HttpEmergencyShareRemoteDataSource
   @override
   Future<List<Map<String, dynamic>>> fetchSharedWithMe() async {
     final response = await _api.get('/emergency-shares/shared-with-me');
+    return (response as List).cast<Map<String, dynamic>>();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchSharesHistory() async {
+    final response = await _api.get('/emergency-shares/history');
     return (response as List).cast<Map<String, dynamic>>();
   }
 }

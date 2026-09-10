@@ -54,6 +54,110 @@ final class RideHistoryProvider
 
 String _$rideHistoryHash() => r'4035d9fe7d5535b81da2e0f62bc83a8a6ac9a215';
 
+/// Every share ("viaje individual") the signed-in user has ended, newest
+/// first — pedido explícito en vivo, junto a [rideHistoryProvider] para
+/// las de grupo.
+
+@ProviderFor(shareHistory)
+final shareHistoryProvider = ShareHistoryProvider._();
+
+/// Every share ("viaje individual") the signed-in user has ended, newest
+/// first — pedido explícito en vivo, junto a [rideHistoryProvider] para
+/// las de grupo.
+
+final class ShareHistoryProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<EmergencyShare>>,
+          List<EmergencyShare>,
+          FutureOr<List<EmergencyShare>>
+        >
+    with
+        $FutureModifier<List<EmergencyShare>>,
+        $FutureProvider<List<EmergencyShare>> {
+  /// Every share ("viaje individual") the signed-in user has ended, newest
+  /// first — pedido explícito en vivo, junto a [rideHistoryProvider] para
+  /// las de grupo.
+  ShareHistoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'shareHistoryProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$shareHistoryHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<List<EmergencyShare>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<EmergencyShare>> create(Ref ref) {
+    return shareHistory(ref);
+  }
+}
+
+String _$shareHistoryHash() => r'b82b0323c217ee45adcfb9c023fb77a4528dacb7';
+
+/// [rideHistoryProvider] and [shareHistoryProvider] merged into a single
+/// chronological feed — what the "Viajes" tab actually renders. See
+/// [RouteHistoryMerger].
+
+@ProviderFor(routeHistory)
+final routeHistoryProvider = RouteHistoryProvider._();
+
+/// [rideHistoryProvider] and [shareHistoryProvider] merged into a single
+/// chronological feed — what the "Viajes" tab actually renders. See
+/// [RouteHistoryMerger].
+
+final class RouteHistoryProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<RouteHistoryEntry>>,
+          List<RouteHistoryEntry>,
+          FutureOr<List<RouteHistoryEntry>>
+        >
+    with
+        $FutureModifier<List<RouteHistoryEntry>>,
+        $FutureProvider<List<RouteHistoryEntry>> {
+  /// [rideHistoryProvider] and [shareHistoryProvider] merged into a single
+  /// chronological feed — what the "Viajes" tab actually renders. See
+  /// [RouteHistoryMerger].
+  RouteHistoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'routeHistoryProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$routeHistoryHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<List<RouteHistoryEntry>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<RouteHistoryEntry>> create(Ref ref) {
+    return routeHistory(ref);
+  }
+}
+
+String _$routeHistoryHash() => r'e7bd3321cf6a1454e044418eeea2e3aa2b6259c2';
+
 /// Every accident event the signed-in user has ever reported, any status,
 /// newest first.
 
@@ -197,14 +301,16 @@ final class AccidentDetailFamily extends $Family
   String toString() => r'accidentDetailProvider';
 }
 
-/// Derived from [rideHistoryProvider]/[accidentHistoryProvider] — see
-/// [RideStatisticsCalculator] for why this isn't its own datasource call.
+/// Derived from [rideHistoryProvider]/[shareHistoryProvider]/
+/// [accidentHistoryProvider] — see [RideStatisticsCalculator] for why this
+/// isn't its own datasource call.
 
 @ProviderFor(rideStatistics)
 final rideStatisticsProvider = RideStatisticsProvider._();
 
-/// Derived from [rideHistoryProvider]/[accidentHistoryProvider] — see
-/// [RideStatisticsCalculator] for why this isn't its own datasource call.
+/// Derived from [rideHistoryProvider]/[shareHistoryProvider]/
+/// [accidentHistoryProvider] — see [RideStatisticsCalculator] for why this
+/// isn't its own datasource call.
 
 final class RideStatisticsProvider
     extends
@@ -214,8 +320,9 @@ final class RideStatisticsProvider
           FutureOr<RideStatistics>
         >
     with $FutureModifier<RideStatistics>, $FutureProvider<RideStatistics> {
-  /// Derived from [rideHistoryProvider]/[accidentHistoryProvider] — see
-  /// [RideStatisticsCalculator] for why this isn't its own datasource call.
+  /// Derived from [rideHistoryProvider]/[shareHistoryProvider]/
+  /// [accidentHistoryProvider] — see [RideStatisticsCalculator] for why this
+  /// isn't its own datasource call.
   RideStatisticsProvider._()
     : super(
         from: null,
@@ -242,4 +349,4 @@ final class RideStatisticsProvider
   }
 }
 
-String _$rideStatisticsHash() => r'e715cbb6e2664b3576b5cc4caea48ba2fa87af38';
+String _$rideStatisticsHash() => r'5975c5f8fae11486b5e8d6f2e31be3eef767c625';

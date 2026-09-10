@@ -43,6 +43,16 @@ emergencyShareRoutes.get(
   }),
 );
 
+// Perfil de usuario ("sus rutas individuales") — todos mis shares,
+// pasados y presentes. Ruta literal `/history`, sin colisión posible con
+// `/emergency-shares/:id/...` (Express no la interpreta como `:id`).
+emergencyShareRoutes.get(
+  '/emergency-shares/history',
+  asyncHandler(async (req, res) => {
+    res.json(await shareService.fetchSharesForUser(req.userId));
+  }),
+);
+
 const locationFixSchema = z.object({
   latitude: z.number(),
   longitude: z.number(),

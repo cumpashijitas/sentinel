@@ -16,6 +16,20 @@ LocationFix _fix() => LocationFix(
   recordedAt: DateTime.utc(2026, 8, 27),
 );
 
+Map<String, dynamic> _shareRow({
+  String id = 's1',
+  String status = 'ended',
+  String startedAt = '2026-08-27T08:00:00.000Z',
+  String? endedAt = '2026-08-27T09:00:00.000Z',
+}) => {
+  'id': id,
+  'user_id': 'u1',
+  'share_token': 'tok-$id',
+  'status': status,
+  'started_at': startedAt,
+  'ended_at': endedAt,
+};
+
 class _FakeEmergencyShareRemoteDataSource
     implements EmergencyShareRemoteDataSource {
   List<Map<String, dynamic>> historyRowsToReturn = [];
@@ -55,6 +69,12 @@ class _FakeEmergencyShareRemoteDataSource
   @override
   Future<List<Map<String, dynamic>>> fetchSharedWithMe() =>
       throw UnimplementedError();
+
+  List<Map<String, dynamic>> sharesHistoryRowsToReturn = [];
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchSharesHistory() async =>
+      sharesHistoryRowsToReturn;
 }
 
 void main() {
@@ -104,6 +124,37 @@ void main() {
       final route = await repository.fetchMyRoute('s1');
 
       expect(route, isEmpty);
+    });
+  });
+
+  group('EmergencyShareRepositoryImpl.fetchHistory', () {
+    test(
+      // Mismo criterio que `RideSessionRepositoryImpl.fetchHistory`: solo
+      // lo que de verdad terminó cuenta como historial — el share activo
+      // (si hay uno) ya se ve en `EmergencySharePage`, no acá.
+      'excludes the currently active share',
+      () async {
+        dataSource.sharesHistoryRowsToReturn = [
+          _shareRow(),
+          _shareRow(id: 's2', status: 'active', endedAt: null),
+        ];
+
+        final history = await repository.fetchHistory();
+
+        expect(history, hasLength(1));
+        expect(history.single.id, 's1');
+      },
+    );
+
+    test('sorts by startedAt, most recent first', () async {
+      dataSource.sharesHistoryRowsToReturn = [
+        _shareRow(startedAt: '2026-08-01T08:00:00.000Z'),
+        _shareRow(id: 's2', startedAt: '2026-08-20T08:00:00.000Z'),
+      ];
+
+      final history = await repository.fetchHistory();
+
+      expect(history.map((s) => s.id), ['s2', 's1']);
     });
   });
 }
